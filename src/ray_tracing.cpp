@@ -1,4 +1,3 @@
-
 #include "ray_tracing.h"
 #include "disable_all_warnings.h"
 // Suppress warnings in third-party code.
@@ -11,28 +10,7 @@ DISABLE_WARNINGS_POP()
 #include <iostream>
 #include <limits>
 
-bool intersectRayWithScene(const Scene& scene, Ray& ray)
-{
-    bool hit = false;
-    for (const auto& mesh : scene.meshes)
-        hit |= intersectRayWithShape(mesh, ray);
-    for (const auto& sphere : scene.spheres)
-        hit |= intersectRayWithShape(sphere, ray);
-    for (const auto& box : scene.boxes)
-        hit |= intersectRayWithShape(box, ray);
-    return hit;
-}
-bool intersectRayWithShape(const Mesh& mesh, Ray& ray)
-{
-    bool hit = false;
-    for (const auto& tri : mesh.triangles) {
-        const auto v0 = mesh.vertices[tri[0]];
-        const auto v1 = mesh.vertices[tri[1]];
-        const auto v2 = mesh.vertices[tri[2]];
-        hit |= intersectRayWithTriangle(v0.p, v1.p, v2.p, ray);
-    }
-    return hit;
-}
+
 Plane trianglePlane(const glm::vec3& v0, const glm::vec3& v1, const glm::vec3& v2)
 {
     //We take v2 as starting point for the 2 base vectors of the triangle
