@@ -10,35 +10,73 @@ DISABLE_WARNINGS_POP()
 #include <iostream>
 #include <limits>
 
-
-Plane trianglePlane(const glm::vec3& v0, const glm::vec3& v1, const glm::vec3& v2)
+bool pointInTriangle(const glm::vec3& v0, const glm::vec3& v1, const glm::vec3& v2, const glm::vec3& n, const glm::vec3& p)
 {
-    //We take v2 as starting point for the 2 base vectors of the triangle
-    //From v2 we go to vertices v0, v1, so you have 2 vectors, (v0 - v2), (v1 - v2)
-    //Taking the cross product with those vectors you get the perpendicular vector to the triangle 
-    //(which is also the plane normal, since the plane contains the triangle)
-    //If we subtract dot(D, n) from any point P in the plane the resulting vector will be parallel to the plane
-    //This is why the length of the orthogonal projection of any point P in the plane will result in D. (in this case we take vertex v0)
-    glm::vec3 numerator = glm::cross((v0 - v2), (v1 - v2));
-    float denominator = glm::length(glm::cross((v0 - v2), (v1 - v2)));
-    glm::vec3 normal = numerator / denominator;
-    float distance = glm::dot(normal, v0);
-    Plane plane{ distance, normal };
+    //Barycentric coordinates:
+        //p = v0 + alpha(v1 - v0) + beta(v2 - v0)
+        //p - v0 = alpha(v1 - v0) + beta(v2 - v0)
+        //A = v1 - v0, B = v2 - v0, C = p - v0
+        //C = alpha*A + beta*B
+        //
+        //We can dot both sides with A and B
+        //Cdot(A) = alpha*(Adot(A)) + beta*(Adot(B))
+        //Cdot(B) = alpha*(Adot(B)) + beta*(Bdot(B))
+        //
+        //dot0 Adot(A), dot1 = Adot(B), dot2 = Adot(C), dot3 = Bdot(B), dot4 = Bdot(C)
+        //
+        //substitute:
+        //dot2 = alpha(dot0) + beta(dot1)
+        //dot4 = alpha(dot1) + beta(dot3)
+        //
+        //dot2 - beta(dot1) = alpha(dot0)
+        //alpha = (dot2 - beta(dot1))/dot0
+        // 
+        //dot4 - alpha(dot1) = beta(dot3)
+        //beta = (dot4 - alpha(dot1)) / dot3
+        //
+        //alpha = (dot2 - dot1((dot4 - alpha(dot1)) / dot3)/dot0
+        //alpha*dot0 = dot2 - dot1((dot4 - alpha(dot1)) / dot3
+        //alpha*dot0*dot3 = dot2*dot3 - dot1((dot4 - alpha(dot1)
+        //alpha*dot0*dot3 = dot2*dot3 - dot1*dot4 - alpha(dot1*dot1)
+        //alpha*dot0*dot3 + alpha(dot1*dot1) = dot2*dot3 - dot1*dot4
+        //alpha(dot0*dot3 + dot1*dot1) = dot2*dot3 - dot1*dot4
+        //alpha = (dot2*dot3 - dot1*dot4) / (dot0*dot3 + dot1*dot1)
+        // 
+        //do the same thing for beta and you get:
+        //beta = (dot0*dot4 - dot1*dot2) / (dot0*dot3 + dot1*dot1)    
+    glm::vec3 A = v1 - v0;
+    glm::vec3 B = v2 - v0;
+    glm::vec3 C = p - v0;
 
-    return plane;
+    double dot0 = glm::dot(A, A);
+    double dot1 = glm::dot(A, B);
+    double dot2 = glm::dot(A, C);
+    double dot3 = glm::dot(B, B);
+    double dot4 = glm::dot(B, C);
+
+    double alpha = (dot2 * dot3 - dot1 * dot4) / (dot0 * dot3 - dot1 * dot1);
+    double beta = (dot0 * dot4 - dot1 * dot2) / (dot0 * dot3 - dot1 * dot1);
+
+    if (alpha >= 0 && beta >= 0 && (alpha + beta) <= 1) {
+        return true;
+    }
+    else {
+        return false;
+    }
 }
+
 bool intersectRayWithPlane(const Plane& plane, Ray& ray)
 {
     //plane: pdot(n) - D = 0
-    //ray: o + t*d
-    //if we substitute we get:
-    //(o + t*d)dot(n) - D = 0
-    // From this follows: (D - odot(n)) / (ddot(n)
-    //If t < 0, the the point is behind the origin, which we don't want, so we return false.
-    //If the ray direction and the normal of the plane are parallel, the dot product of the 2 will result in 0, so in that case we return false.
-    //If the ray origin lays on the plane, but the direction is parallel to the plane normal, we set ray.t to 0 else we return false.
-    //If the new calculated t > ray.t the new t will be a intersection which is farther, so we return false.
-    //Else we return true and we update ray.t
+        //ray: o + t*d
+        //if we substitute we get:
+        //(o + t*d)dot(n) - D = 0
+        // From this follows: (D - odot(n)) / (ddot(n)
+        //If t < 0, the the point is behind the origin, which we don't want, so we return false.
+        //If the ray direction and the normal of the plane are parallel, the dot product of the 2 will result in 0, so in that case we return false.
+        //If the ray origin lays on the plane, but the direction is parallel to the plane normal, we set ray.t to 0 else we return false.
+        //If the new calculated t > ray.t the new t will be a intersection which is farther, so we return false.
+        //Else we return true and we update ray.t
     double numerator = plane.D - glm::dot(ray.origin, plane.normal);
     double denominator = glm::dot(ray.direction, plane.normal);
     if (denominator == 0 && denominator <= 0 + pow(10, -6) && denominator >= 0 - pow(10, -6)) {
@@ -63,63 +101,27 @@ bool intersectRayWithPlane(const Plane& plane, Ray& ray)
         return true;
     }
 }
-bool pointInTriangle(const glm::vec3& v0, const glm::vec3& v1, const glm::vec3& v2, const glm::vec3& n, const glm::vec3& p)
+
+Plane trianglePlane(const glm::vec3& v0, const glm::vec3& v1, const glm::vec3& v2)
 {
-    //Barycentric coordinates:
-    //p = v0 + alpha(v1 - v0) + beta(v2 - v0)
-    //p - v0 = alpha(v1 - v0) + beta(v2 - v0)
-    //A = v1 - v0, B = v2 - v0, C = p - v0
-    //C = alpha*A + beta*B
-    //
-    //We can dot both sides with A and B
-    //Cdot(A) = alpha*(Adot(A)) + beta*(Adot(B))
-    //Cdot(B) = alpha*(Adot(B)) + beta*(Bdot(B))
-    //
-    //dot0 Adot(A), dot1 = Adot(B), dot2 = Adot(C), dot3 = Bdot(B), dot4 = Bdot(C)
-    //
-    //substitute:
-    //dot2 = alpha(dot0) + beta(dot1)
-    //dot4 = alpha(dot1) + beta(dot3)
-    //
-    //dot2 - beta(dot1) = alpha(dot0)
-    //alpha = (dot2 - beta(dot1))/dot0
-    // 
-    //dot4 - alpha(dot1) = beta(dot3)
-    //beta = (dot4 - alpha(dot1)) / dot3
-    //
-    //alpha = (dot2 - dot1((dot4 - alpha(dot1)) / dot3)/dot0
-    //alpha*dot0 = dot2 - dot1((dot4 - alpha(dot1)) / dot3
-    //alpha*dot0*dot3 = dot2*dot3 - dot1((dot4 - alpha(dot1)
-    //alpha*dot0*dot3 = dot2*dot3 - dot1*dot4 - alpha(dot1*dot1)
-    //alpha*dot0*dot3 + alpha(dot1*dot1) = dot2*dot3 - dot1*dot4
-    //alpha(dot0*dot3 + dot1*dot1) = dot2*dot3 - dot1*dot4
-    //alpha = (dot2*dot3 - dot1*dot4) / (dot0*dot3 + dot1*dot1)
-    // 
-    //do the same thing for beta and you get:
-    //beta = (dot0*dot4 - dot1*dot2) / (dot0*dot3 + dot1*dot1)    
-    glm::vec3 A = v1 - v0;
-    glm::vec3 B = v2 - v0;
-    glm::vec3 C = p - v0;
+    //We take v2 as starting point for the 2 base vectors of the triangle
+    //From v2 we go to vertices v0, v1, so you have 2 vectors, (v0 - v2), (v1 - v2)
+    //Taking the cross product with those vectors you get the perpendicular vector to the triangle 
+    //(which is also the plane normal, since the plane contains the triangle)
+    //If we subtract dot(D, n) from any point P in the plane the resulting vector will be parallel to the plane
+    //This is why the length of the orthogonal projection of any point P in the plane will result in D. (in this case we take vertex v0)
+    glm::vec3 numerator = glm::cross((v0 - v2), (v1 - v2));
+    float denominator = glm::length(glm::cross((v0 - v2), (v1 - v2)));
+    glm::vec3 normal = numerator / denominator;
+    float distance = glm::dot(normal, v0);
+    Plane plane{ distance, normal };
 
-    double dot0 = glm::dot(A, A);
-    double dot1 = glm::dot(A, B);
-    double dot2 = glm::dot(A, C);
-    double dot3 = glm::dot(B, B);
-    double dot4 = glm::dot(B, C);
-
-    double alpha = (dot2 * dot3 - dot1 * dot4) / (dot0 * dot3 - dot1 * dot1);
-    double beta = (dot0 * dot4 - dot1 * dot2) / (dot0 * dot3 - dot1 * dot1);
-
-    if (alpha >= 0 && beta >= 0 && (alpha + beta) <= 1) {
-        return true;
-    }
-    else {
-        return false;
-    }
+    return plane;
 }
+
 /// Input: the three vertices of the triangle
 /// Output: if intersects then modify the hit parameter ray.t and return true, otherwise return false
-bool intersectRayWithTriangle(const glm::vec3& v0, const glm::vec3& v1, const glm::vec3& v2, Ray& ray)
+bool intersectRayWithTriangle(const glm::vec3& v0, const glm::vec3& v1, const glm::vec3& v2, Ray& ray, HitInfo& hitInfo)
 {
     Plane plane = trianglePlane(v0, v1, v2);
     float t = ray.t;
@@ -130,28 +132,29 @@ bool intersectRayWithTriangle(const glm::vec3& v0, const glm::vec3& v1, const gl
     ray.t = t;
     return false;
 }
+
 /// Input: a sphere with the following attributes: sphere.radius, sphere.center
 /// Output: if intersects then modify the hit parameter ray.t and return true, otherwise return false
-bool intersectRayWithShape(const Sphere& sphere, Ray& ray)
+bool intersectRayWithShape(const Sphere& sphere, Ray& ray, HitInfo& hitInfo)
 {
     //ray: p = o + td 
-    //sphere: (p - c)^2 = r^2
-    //subtitute:
-    //(o + td - c)^2 = r^2
-    //v = o - c
-    //(v + td)^2 = r^2
-    //v^2 + 2vtd + t^2d^2 = r^2
-    //v^2 + 2vdt + t^2d^2 - r^2 = 0
-    //d^2t^2 + 2vdt + v^2 - r^2 = 0
-    //a = d^2 
-    //b = 2vd
-    //c = v^2 - r^2 
-    //Now we can solve this with the ABC formula, (-b +/- sqrt(b^2 - 4ac))/2a
-    //When the discriminant < 0, we return false, since there are no solution to this equation
-    //If tp or tn < 0, we are inside of the sphere (if they're both < 0, we return false)
-    //t < ray.t has to hold, because else it'll be a intersection that is farther away
-    //If both tp and tn are positive, we set ray.t to the smallest of the 2, t < ray.t also has to hold here 
-    //Else return false
+        //sphere: (p - c)^2 = r^2
+        //subtitute:
+        //(o + td - c)^2 = r^2
+        //v = o - c
+        //(v + td)^2 = r^2
+        //v^2 + 2vtd + t^2d^2 = r^2
+        //v^2 + 2vdt + t^2d^2 - r^2 = 0
+        //d^2t^2 + 2vdt + v^2 - r^2 = 0
+        //a = d^2 
+        //b = 2vd
+        //c = v^2 - r^2 
+        //Now we can solve this with the ABC formula, (-b +/- sqrt(b^2 - 4ac))/2a
+        //When the discriminant < 0, we return false, since there are no solution to this equation
+        //If tp or tn < 0, we are inside of the sphere (if they're both < 0, we return false)
+        //t < ray.t has to hold, because else it'll be a intersection that is farther away
+        //If both tp and tn are positive, we set ray.t to the smallest of the 2, t < ray.t also has to hold here 
+        //Else return false
     glm::vec3 o = ray.origin;
     glm::vec3 d = glm::normalize(ray.direction);
     glm::vec3 v = o - sphere.center;
@@ -184,24 +187,25 @@ bool intersectRayWithShape(const Sphere& sphere, Ray& ray)
         return false;
     }
 }
+
 /// Input: an axis-aligned bounding box with the following parameters: minimum coordinates box.lower and maximum coordinates box.upper
 /// Output: if intersects then modify the hit parameter ray.t and return true, otherwise return false
 bool intersectRayWithShape(const AxisAlignedBox& box, Ray& ray)
 {
     //plane: x - xmin = 0
-    //ray: o + t*d 
-    //substitute:
-    //o + t*d - xmin = 0;
-    //t = (xmin - ox)/d
-    //repeat for x, y, z (both min, max)
-    //to get to the tin and tout, we can simply do for tin min(tmin, tmax) and for tout max(tmin, tmax) 
-    //repeat for x,y,z (both in, out)
-    //to determine if we actually intersect:
-    //tin: we take the last intersection (so max())
-    //tout: we take the first intersection (so min())
-    //If tout < tin, we miss the box entirely
-    //If tout is negative, the intersection is before the origin of the ray
-    //If tin is negative, the ray starts inside of the AABB, so we take tout, since that is the first intersection
+        //ray: o + t*d 
+        //substitute:
+        //o + t*d - xmin = 0;
+        //t = (xmin - ox)/d
+        //repeat for x, y, z (both min, max)
+        //to get to the tin and tout, we can simply do for tin min(tmin, tmax) and for tout max(tmin, tmax) 
+        //repeat for x,y,z (both in, out)
+        //to determine if we actually intersect:
+        //tin: we take the last intersection (so max())
+        //tout: we take the first intersection (so min())
+        //If tout < tin, we miss the box entirely
+        //If tout is negative, the intersection is before the origin of the ray
+        //If tin is negative, the ray starts inside of the AABB, so we take tout, since that is the first intersection
     glm::vec3 tmin = (box.lower - ray.origin) / ray.direction;
     glm::vec3 tmax = (box.upper - ray.origin) / ray.direction;
 
