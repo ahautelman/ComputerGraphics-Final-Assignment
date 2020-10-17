@@ -35,24 +35,54 @@ enum class ViewMode {
     RayTracing = 1
 };
 
+glm::vec3 diffuseOnly(const glm::vec3 Kd, const glm::vec3& vertexPos, const glm::vec3& normal, const glm::vec3& lightPos)
+{
+    glm::vec3 normaln = glm::normalize(normal);
+    glm::vec3 lightPosn = glm::normalize(lightPos - vertexPos);
+    if (glm::dot(normaln, lightPosn) <= 0)
+        return glm::vec3(0);
+    return Kd * glm::dot(normaln, lightPosn);
+}
+glm::vec3 phongSpecularOnly(const glm::vec3 Ks, const float shininess, const glm::vec3& vertexPos, const glm::vec3& normal, const glm::vec3& lightPos, const glm::vec3& cameraPos)
+{
+    glm::vec3 normaln = glm::normalize(normal);
+    glm::vec3 lightn = glm::normalize(lightPos - vertexPos);
+    glm::vec3 reflection = glm::vec3(2) * (glm::dot(lightn, normaln)) * normaln - lightn;
+    glm::vec3 view = glm::normalize(cameraPos - vertexPos);
+    if (glm::dot(reflection, view) <= 0)
+        return glm::vec3(0);
+    glm::vec3 specularity = Ks;
+    float result = pow(glm::dot(reflection, view), shininess);
 
+    return specularity * result;
+}
 // NOTE(Mathijs): separate function to make recursion easier (could also be done with lambda + std::function).
 static glm::vec3 getFinalColor(const Scene& scene, const BoundingVolumeHierarchy& bvh, Ray ray)
 {
     HitInfo hitInfo;
+    
     if (bvh.intersect(ray, hitInfo)) {
-        // Draw a white debug ray.
-        drawRay(ray, glm::vec3(1.0f));
-        // Set the color of the pixel to white if the ray hits.
-        return glm::vec3(1.0f);
-    } else {
+        glm::vec3 result = glm::vec3(0);
+
+        for (PointLight light : scene.pointLights) {
+            glm::vec3 diffuse = diffuseOnly(hitInfo.material.kd, (ray.origin + ray.t*ray.direction), hitInfo.normal, light.position);
+            glm::vec3 specular = phongSpecularOnly(hitInfo.material.ks, hitInfo.material.shininess, (ray.origin + ray.t * ray.direction), hitInfo.normal, light.position, ray.origin);            
+            result += diffuse * light.color + specular * light.color;
+        }
+        if (result.x > 1.0) result.x = 1.0;
+        if (result.y > 1.0) result.y = 1.0;
+        if (result.z > 1.0) result.z = 1.0;
+        drawRay(ray, result);       
+
+        return result;
+    }
+    else {
         // Draw a red debug ray if the ray missed.
         drawRay(ray, glm::vec3(1.0f, 0.0f, 0.0f));
         // Set the color of the pixel to black if the ray misses.
         return glm::vec3(0.0f);
     }
 }
-
 static void setOpenGLMatrices(const Trackball& camera);
 static void renderOpenGL(const Scene& scene, const Trackball& camera, int selectedLight);
 
