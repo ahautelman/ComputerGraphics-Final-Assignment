@@ -56,6 +56,25 @@ glm::vec3 phongSpecularOnly(const glm::vec3 Ks, const float shininess, const glm
 
     return specularity * result;
 }
+/// Returns true if there has is something between the light and the intersection
+static bool hardShadows(glm::vec3 intersection, const Scene& scene, const BoundingVolumeHierarchy& bvh, glm::vec3 lightPos)
+{    
+    Ray shadowRay;
+    HitInfo hitInfoSR;
+    shadowRay.direction = glm::normalize(lightPos - intersection);
+    shadowRay.origin = intersection + shadowRay.direction * glm::vec3(0.00001);
+
+    if (bvh.intersect(shadowRay, hitInfoSR)) {
+        glm::vec3 intersectionSR = shadowRay.origin + shadowRay.direction * shadowRay.t;
+        if (glm::distance(shadowRay.origin, intersectionSR) >= glm::distance(shadowRay.origin, lightPos)) 
+            return false;        
+        if (glm::dot((intersectionSR - shadowRay.origin), hitInfoSR.normal) > 0)
+            return false;
+        drawRay(shadowRay, glm::vec3(1.0f, 0.0f, 0.0f));
+        return true;
+    }    
+    return false;
+}
 // NOTE(Mathijs): separate function to make recursion easier (could also be done with lambda + std::function).
 static glm::vec3 getFinalColor(const Scene& scene, const BoundingVolumeHierarchy& bvh, Ray ray)
 {
@@ -63,17 +82,18 @@ static glm::vec3 getFinalColor(const Scene& scene, const BoundingVolumeHierarchy
     
     if (bvh.intersect(ray, hitInfo)) {
         glm::vec3 result = glm::vec3(0);
-
         for (PointLight light : scene.pointLights) {
-            glm::vec3 diffuse = diffuseOnly(hitInfo.material.kd, (ray.origin + ray.t*ray.direction), hitInfo.normal, light.position);
-            glm::vec3 specular = phongSpecularOnly(hitInfo.material.ks, hitInfo.material.shininess, (ray.origin + ray.t * ray.direction), hitInfo.normal, light.position, ray.origin);            
-            result += diffuse * light.color + specular * light.color;
+            if (!hardShadows((ray.origin + ray.direction * ray.t), scene, bvh, light.position)) {        
+                glm::vec3 diffuse = diffuseOnly(hitInfo.material.kd, (ray.origin + ray.t*ray.direction), hitInfo.normal, light.position);
+                glm::vec3 specular = phongSpecularOnly(hitInfo.material.ks, hitInfo.material.shininess, (ray.origin + ray.t * ray.direction), hitInfo.normal, light.position, ray.origin);            
+                result += diffuse * light.color + specular * light.color;
+            }
         }
         if (result.x > 1.0) result.x = 1.0;
         if (result.y > 1.0) result.y = 1.0;
         if (result.z > 1.0) result.z = 1.0;
-        drawRay(ray, result);       
-
+        
+        drawRay(ray, result);             
         return result;
     }
     else {
@@ -83,6 +103,7 @@ static glm::vec3 getFinalColor(const Scene& scene, const BoundingVolumeHierarchy
         return glm::vec3(0.0f);
     }
 }
+
 static void setOpenGLMatrices(const Trackball& camera);
 static void renderOpenGL(const Scene& scene, const Trackball& camera, int selectedLight);
 
