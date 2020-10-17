@@ -121,14 +121,17 @@ Plane trianglePlane(const glm::vec3& v0, const glm::vec3& v1, const glm::vec3& v
 
 /// Input: the three vertices of the triangle
 /// Output: if intersects then modify the hit parameter ray.t and return true, otherwise return false
+/// If there is an intersection, we set hitInfo.normal = plane.normal (the normal of the intersection lies on that plane)
 bool intersectRayWithTriangle(const glm::vec3& v0, const glm::vec3& v1, const glm::vec3& v2, Ray& ray, HitInfo& hitInfo)
 {
     Plane plane = trianglePlane(v0, v1, v2);
     float t = ray.t;
     if (!intersectRayWithPlane(plane, ray))
         return false;
-    if (pointInTriangle(v0, v1, v2, plane.normal, (ray.origin + ray.direction * ray.t)))
+    if (pointInTriangle(v0, v1, v2, plane.normal, (ray.origin + ray.direction * ray.t))) {
+        hitInfo.normal = plane.normal;
         return true;
+    }
     ray.t = t;
     return false;
 }
@@ -151,6 +154,7 @@ bool intersectRayWithShape(const Sphere& sphere, Ray& ray, HitInfo& hitInfo)
         //c = v^2 - r^2 
         //Now we can solve this with the ABC formula, (-b +/- sqrt(b^2 - 4ac))/2a
         //When the discriminant < 0, we return false, since there are no solution to this equation
+        // If there is an intersection, we set hitInfo.normal = normalize(Point of intersection - r) 
         //If tp or tn < 0, we are inside of the sphere (if they're both < 0, we return false)
         //t < ray.t has to hold, because else it'll be a intersection that is farther away
         //If both tp and tn are positive, we set ray.t to the smallest of the 2, t < ray.t also has to hold here 
@@ -164,23 +168,28 @@ bool intersectRayWithShape(const Sphere& sphere, Ray& ray, HitInfo& hitInfo)
     float c = glm::dot(v, v) - pow(r, 2);
     if ((pow(b, 2) - 4 * a * c) < 0)
         return false;
+    
     float tp = ((-b + sqrt(pow(b, 2) - 4 * a * c)) / 2 * a);
     float tn = ((-b - sqrt(pow(b, 2) - 4 * a * c)) / 2 * a);
 
     if (tp < 0 && tn >= 0 && tn < ray.t) {
         ray.t = tn;
+        glm::vec3 normal = glm::normalize((ray.origin + ray.direction * ray.t) - r);
         return true;
     }
     if (tn < 0 && tp >= 0 && tp < ray.t) {
         ray.t = tp;
+        glm::vec3 normal = glm::normalize((ray.origin + ray.direction * ray.t) - r);
         return true;
     }
     if (tp >= tn && tn < ray.t && tn >= 0) {
         ray.t = tn;
+        glm::vec3 normal = glm::normalize((ray.origin + ray.direction * ray.t) - r);
         return true;
     }
     if (tn >= tp && tp < ray.t && tp >= 0) {
         ray.t = tp;
+        glm::vec3 normal = glm::normalize((ray.origin + ray.direction * ray.t) - r);
         return true;
     }
     else {
