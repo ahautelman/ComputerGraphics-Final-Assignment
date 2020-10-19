@@ -147,7 +147,7 @@ static glm::vec3 Shade(Scene scene, int level, Ray ray, glm::vec3 color, Boundin
     float y = ray.origin.y + 0.000001 * glm::normalize(glm::reflect(ray.direction, hitInfo.normal)).y;
     float z = ray.origin.z + 0.000001 * glm::normalize(glm::reflect(ray.direction, hitInfo.normal)).z;
     glm::vec3 offset = { x,y,z };
-    if (hitInfo.material.ks.x != 0 || hitInfo.material.ks.y != 0 || hitInfo.material.ks.x != 0) {
+    if (hitInfo.material.ks.x != 0 || hitInfo.material.ks.y != 0 || hitInfo.material.ks.z != 0) {
         Ray reflectray = { offset + ray.t * ray.direction,glm::normalize(glm::reflect(ray.direction, hitInfo.normal)),std::numeric_limits<float>::max() };
         glm::vec3 reflectedcolor = Trace(scene, level + 1, reflectray, color, bvh);
         color = direct + hitInfo.material.ks * reflectedcolor;
