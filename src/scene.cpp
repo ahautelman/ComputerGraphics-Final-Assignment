@@ -1,5 +1,34 @@
 #include "scene.h"
 #include <iostream>
+DISABLE_WARNINGS_PUSH()
+#include <glm/gtc/type_ptr.hpp>
+
+//TODO: update to a larger number once acceleration is done
+const int number_of_lights = 6;
+
+// reference: https://scholar.rose-hulman.edu/cgi/viewcontent.cgi?article=1387&context=rhumj
+// how to place N (almost) equally spaced points on a sphere
+static glm::vec3 sphericalCoordinate(float x, float y, SphericalLight& spherical_light) {
+    return glm::vec3(glm::cos(x) * glm::cos(y),
+        glm::sin(x) * glm::cos(y),
+        glm::sin(y)) 
+        * spherical_light.radius;
+}
+
+// replace a spherical light with N (=number_of_lights) point lights
+static void placeSphericalLight(Scene& scene, SphericalLight& spherical_light) {
+    glm::vec3 color = spherical_light.color / (float)number_of_lights;
+    float x = 0.1 + 1.2 * number_of_lights;
+    float start = (-1.0f + 1.0f / (float)(number_of_lights - 1));
+    float increment = (2.0f - 2.0f / (float)(number_of_lights - 1)) / (float)(number_of_lights - 1);
+    for (int j = 0; j < number_of_lights; j++) {
+        float s = start + j * increment;
+        glm::vec3 point_position = sphericalCoordinate(s * x,
+            glm::pi<float>() / 2.0f * std::copysign(1.0f, s) * (1.0f - glm::sqrt(1.0f - glm::abs(s))),
+            spherical_light) + spherical_light.position;
+        scene.pointLights.push_back(PointLight { point_position, color});
+    }
+}
 
 Scene loadScene(SceneType type, const std::filesystem::path& dataDir)
 {
@@ -65,5 +94,12 @@ Scene loadScene(SceneType type, const std::filesystem::path& dataDir)
     } break;
     };
 
+    for (SphericalLight spherical_light : scene.sphericalLight) {
+        placeSphericalLight(scene, spherical_light);
+    }
+
     return scene;
 }
+
+/*
+*/
