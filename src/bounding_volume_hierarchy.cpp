@@ -1,11 +1,118 @@
 #include "bounding_volume_hierarchy.h"
 #include "draw.h"
 
+bool Node::isLeaf() {
+    if (children.empty())
+        return true;
+    else
+        return false;
+}
+
+// made it so that axis can take values from 0 to 2
+// change function as you see fit
+Split doTheSplit(std::vector<Triangle> triangles, int axis) {
+    std::vector<Triangle> subdivision1;
+    std::vector<Triangle> subdivision2;
+    return Split{ subdivision1, subdivision2};
+}
+
+AxisAlignedBox BoundingVolumeHierarchy::getAABB(std::vector<Triangle> triangles, Mesh& mesh) {
+    glm::vec3 lower = glm::vec3{ INFINITY };
+    glm::vec3 upper = glm::vec3{ -INFINITY };
+
+    // is there better way to do this?
+    for (const auto triangle : triangles) {
+        float min_x = std::min(mesh.vertices[triangle[0]].p.x, std::min(
+            mesh.vertices[triangle[1]].p.x, mesh.vertices[triangle[2]].p.x));
+        lower.x = std::min(lower.x, min_x);
+        float min_y = std::min(mesh.vertices[triangle[0]].p.y, std::min(
+            mesh.vertices[triangle[1]].p.y, mesh.vertices[triangle[2]].p.y));
+        lower.y = std::min(lower.y, min_y);
+        float min_z = std::min(mesh.vertices[triangle[0]].p.z, std::min(
+            mesh.vertices[triangle[1]].p.z, mesh.vertices[triangle[2]].p.z));
+        lower.z = std::min(lower.z, min_z);
+
+        float max_x = std::max(mesh.vertices[triangle[0]].p.x, std::max(
+            mesh.vertices[triangle[1]].p.x, mesh.vertices[triangle[2]].p.x));
+        upper.x = std::max(upper.x, max_x);
+        float max_y = std::max(mesh.vertices[triangle[0]].p.y, std::max(
+            mesh.vertices[triangle[1]].p.y, mesh.vertices[triangle[2]].p.y));
+        upper.y = std::max(upper.y, max_y);
+        float max_z = std::max(mesh.vertices[triangle[0]].p.z, std::max(
+            mesh.vertices[triangle[1]].p.z, mesh.vertices[triangle[2]].p.z));
+        upper.z = std::max(upper.z, max_z);
+    }
+    return AxisAlignedBox{ lower, upper };
+}
+
+void BoundingVolumeHierarchy::fillTree(std::vector<Triangle>& triangles, int index, int axis, Mesh& mesh) {
+    AxisAlignedBox aabb = getAABB(triangles, mesh);
+    std::vector<int> children;
+    if (triangles.size() < min_triangles) {
+        LeafNode node = LeafNode{aabb, children, triangles, mesh};
+        tree.insert(tree.begin() + index, node);
+    }
+    else
+    {
+        children.push_back(2 * index + num_meshes - 1);
+        children.push_back(2 * index + num_meshes);
+        Node node = Node{ aabb, children};
+        tree.insert(tree.begin() + index, node);
+
+        Split split = doTheSplit(triangles, axis);
+        fillTree(split.subdivision1, 2 * index + num_meshes - 1, axis % 3 + 1, mesh);
+        fillTree(split.subdivision2, 2 * index + num_meshes, axis % 3 + 1, mesh);
+    }
+}
+
 BoundingVolumeHierarchy::BoundingVolumeHierarchy(Scene* pScene)
     : m_pScene(pScene)
 {
+    num_meshes = pScene->meshes.size();
+    glm::vec3 lower = glm::vec3{ INFINITY };
+    glm::vec3 upper = glm::vec3{ -INFINITY };
 
-    // as an example of how to iterate over all meshes in the scene, look at the intersect method below
+    std::vector<int> children;
+
+    // since each node has to store the INDICES of triangles, confusion may arise as to which mesh
+    // level 0 of the bvh contains the whole scene
+    // level 1 of the bvh contains all individual meshes
+    // following levels are split binary
+    for (int i = 0; i < num_meshes; i++) {
+        Mesh mesh = pScene->meshes.at(i);
+        std::vector<Triangle> triangles;
+        for (const auto& triangle : mesh.triangles) {
+            triangles.push_back(triangle);
+
+            // building aabb for root
+            float min_x = std::min(mesh.vertices[triangle[0]].p.x, std::min(
+                mesh.vertices[triangle[1]].p.x, mesh.vertices[triangle[2]].p.x));
+            lower.x = std::min(lower.x, min_x);
+            float min_y = std::min(mesh.vertices[triangle[0]].p.y, std::min(
+                mesh.vertices[triangle[1]].p.y, mesh.vertices[triangle[2]].p.y));
+            lower.y = std::min(lower.y, min_y);
+            float min_z = std::min(mesh.vertices[triangle[0]].p.z, std::min(
+                mesh.vertices[triangle[1]].p.z, mesh.vertices[triangle[2]].p.z));
+            lower.z = std::min(lower.z, min_z);
+
+            float max_x = std::max(mesh.vertices[triangle[0]].p.x, std::max(
+                mesh.vertices[triangle[1]].p.x, mesh.vertices[triangle[2]].p.x));
+            upper.x = std::max(upper.x, max_x);
+            float max_y = std::max(mesh.vertices[triangle[0]].p.y, std::max(
+                mesh.vertices[triangle[1]].p.y, mesh.vertices[triangle[2]].p.y));
+            upper.y = std::max(upper.y, max_y);
+            float max_z = std::max(mesh.vertices[triangle[0]].p.z, std::max(
+                mesh.vertices[triangle[1]].p.z, mesh.vertices[triangle[2]].p.z));
+            upper.z = std::max(upper.z, max_z);
+        }
+        fillTree(triangles, i + 1, 0, mesh);
+        children.push_back(i);
+    }
+
+    AxisAlignedBox aabb = AxisAlignedBox{ lower, upper };
+    Node root = Node{ aabb, children };
+    // insert root at index 0
+    tree.insert(tree.begin(), root);
 }
 
 // Use this function to visualize your BVH. This can be useful for debugging. Use the functions in
