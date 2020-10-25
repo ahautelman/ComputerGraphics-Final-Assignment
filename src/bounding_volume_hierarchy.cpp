@@ -10,10 +10,47 @@ bool Node::isLeaf() {
 
 // made it so that axis can take values from 0 to 2
 // change function as you see fit
-Split doTheSplit(std::vector<Triangle> triangles, int axis) {
+Split doTheSplit(std::vector<Triangle> triangles, std::vector<Vertex> vertices, int axis) {
     std::vector<Triangle> subdivision1;
     std::vector<Triangle> subdivision2;
-    return Split{ subdivision1, subdivision2};
+    float mean = 0;
+    float sum = 0;
+
+    for (Triangle triangle : triangles) {
+        if (axis == 0) 
+            sum += triangle.x;        
+        if (axis == 1)          
+            sum += triangle.y;        
+        if (axis == 2) 
+            sum += triangle.z;      
+    }
+    if (sum == 0) 
+        mean = 0;
+    else
+        mean = sum / triangles.size();
+
+    for (Triangle triangle : triangles) {
+        if (axis == 0) {
+            if (triangle.x >= mean)
+                subdivision1.push_back(triangle);
+            else
+                subdivision2.push_back(triangle);
+        }
+        if (axis == 1) {
+            if (triangle.y >= mean)
+                subdivision1.push_back(triangle);
+            else
+                subdivision2.push_back(triangle);
+        }
+        if (axis == 2) {
+            if (triangle.z >= mean)
+                subdivision1.push_back(triangle);
+            else
+                subdivision2.push_back(triangle);
+        }
+    }
+
+    return Split{subdivision1, subdivision2};
 }
 
 AxisAlignedBox BoundingVolumeHierarchy::getAABB(std::vector<Triangle> triangles, Mesh& mesh) {
@@ -59,7 +96,7 @@ void BoundingVolumeHierarchy::fillTree(std::vector<Triangle>& triangles, int ind
         Node node = Node{ aabb, children};
         tree.insert(tree.begin() + index, node);
 
-        Split split = doTheSplit(triangles, axis);
+        Split split = doTheSplit(triangles, mesh.vertices, axis);
         fillTree(split.subdivision1, 2 * index + num_meshes - 1, axis % 3 + 1, mesh);
         fillTree(split.subdivision2, 2 * index + num_meshes, axis % 3 + 1, mesh);
     }
@@ -120,7 +157,6 @@ BoundingVolumeHierarchy::BoundingVolumeHierarchy(Scene* pScene)
 // mode, arbitrary colors and transparency.
 void BoundingVolumeHierarchy::debugDraw(int level)
 {
-
     // Draw the AABB as a transparent green box.
     //AxisAlignedBox aabb{ glm::vec3(-0.05f), glm::vec3(0.05f, 1.05f, 1.05f) };
     //drawShape(aabb, DrawMode::Filled, glm::vec3(0.0f, 1.0f, 0.0f), 0.2f);
