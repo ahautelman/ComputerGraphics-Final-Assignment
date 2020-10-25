@@ -79,7 +79,7 @@ AxisAlignedBox BoundingVolumeHierarchy::getAABB(std::vector<Triangle> triangles,
             mesh.vertices[triangle[1]].p.z, mesh.vertices[triangle[2]].p.z));
         upper.z = std::max(upper.z, max_z);
     }
-    return AxisAlignedBox{ lower, upper };
+    return AxisAlignedBox{ lower, upper }; 
 }
 
 void BoundingVolumeHierarchy::fillTree(std::vector<Triangle>& triangles, int index, int axis, Mesh& mesh) {
@@ -156,15 +156,29 @@ BoundingVolumeHierarchy::BoundingVolumeHierarchy(Scene* pScene)
 // draw.h to draw the various shapes. We have extended the AABB draw functions to support wireframe
 // mode, arbitrary colors and transparency.
 void BoundingVolumeHierarchy::debugDraw(int level)
-{
-    // Draw the AABB as a transparent green box.
-    //AxisAlignedBox aabb{ glm::vec3(-0.05f), glm::vec3(0.05f, 1.05f, 1.05f) };
-    //drawShape(aabb, DrawMode::Filled, glm::vec3(0.0f, 1.0f, 0.0f), 0.2f);
-
-    // Draw the AABB as a (white) wireframe box.
-    AxisAlignedBox aabb { glm::vec3(-0.05f), glm::vec3(0.05f, 1.05f, 1.05f) };
-    //drawAABB(aabb, DrawMode::Wireframe);
-    drawAABB(aabb, DrawMode::Filled, glm::vec3(0.05f, 1.0f, 0.05f), 0.1);
+{   
+    std::vector<Node> tree = this->tree;
+    if (level == 0) 
+        drawAABB(this->tree[0].aabb, DrawMode::Filled, glm::vec3(0.05f, 1.0f, 0.05f), 0.1);    
+    if (level == 1) {
+        for (int i = 0; i < this->num_meshes; i++) {
+            drawAABB(this->tree[i + 1].aabb, DrawMode::Filled, glm::vec3(0.05f, 1.0f, 0.05f), 0.1);
+        }
+    } else {   
+        int indexLast = this->num_meshes;   
+        for (int i = 2; i <= level; i++) {
+            indexLast += this->num_meshes * pow(2, i - 1);                     
+        }    
+        int indexFirst = indexLast - this->num_meshes * pow(2, level - 1) + 1;
+        for (int j = 0; j < this->num_meshes * pow(2, level - 1); j++) {
+            AxisAlignedBox aabb = tree[indexFirst].aabb;
+            indexFirst++;
+            drawAABB(aabb, DrawMode::Filled, glm::vec3(0.05f, 1.0f, 0.05f), 0.1);
+        }     
+        // Draw the AABB as a transparent green box.
+        //AxisAlignedBox aabb{ glm::vec3(-0.05f), glm::vec3(0.05f, 1.05f, 1.05f) };
+        //drawShape(aabb, DrawMode::Filled, glm::vec3(0.0f, 1.0f, 0.0f), 0.2f);
+    }  
 }
 
 int BoundingVolumeHierarchy::numLevels() const
