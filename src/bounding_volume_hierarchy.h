@@ -22,7 +22,7 @@ struct Node
     bool isLeaf();
 };
 
-struct LeafNode : public Node 
+struct LeafNode : public Node
 {
     // if the node is leaf, array is used to store the triangles contained
     // TODO change from vector<Triangle> to vector<int> (containing the INDICES of triangles ????)
@@ -30,6 +30,12 @@ struct LeafNode : public Node
 
     // only leaf nodes have the mesh attribute
     Mesh mesh;
+};
+
+struct NodeLevel
+{
+    Node node;
+    int level;
 };
 
 class BoundingVolumeHierarchy {
@@ -48,7 +54,7 @@ public:
     bool intersect(Ray& ray, HitInfo& hitInfo) const;
 
     AxisAlignedBox getAABB(std::vector<Triangle> triangles, Mesh& mesh);
-
+    bool BoundingVolumeHierarchy::traversetree(LeafNode n, Ray& ray, HitInfo& hitInfo, bool hit);
 private:
     Scene* m_pScene;
 

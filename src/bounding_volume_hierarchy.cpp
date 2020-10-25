@@ -17,14 +17,14 @@ Split doTheSplit(std::vector<Triangle> triangles, std::vector<Vertex> vertices, 
     float sum = 0;
 
     for (Triangle triangle : triangles) {
-        if (axis == 0) 
-            sum += triangle.x;        
-        if (axis == 1)          
-            sum += triangle.y;        
-        if (axis == 2) 
-            sum += triangle.z;      
+        if (axis == 0)
+            sum += triangle.x;
+        if (axis == 1)
+            sum += triangle.y;
+        if (axis == 2)
+            sum += triangle.z;
     }
-    if (sum == 0) 
+    if (sum == 0)
         mean = 0;
     else
         mean = sum / triangles.size();
@@ -50,7 +50,7 @@ Split doTheSplit(std::vector<Triangle> triangles, std::vector<Vertex> vertices, 
         }
     }
 
-    return Split{subdivision1, subdivision2};
+    return Split{ subdivision1, subdivision2 };
 }
 
 AxisAlignedBox BoundingVolumeHierarchy::getAABB(std::vector<Triangle> triangles, Mesh& mesh) {
@@ -79,21 +79,22 @@ AxisAlignedBox BoundingVolumeHierarchy::getAABB(std::vector<Triangle> triangles,
             mesh.vertices[triangle[1]].p.z, mesh.vertices[triangle[2]].p.z));
         upper.z = std::max(upper.z, max_z);
     }
-    return AxisAlignedBox{ lower, upper }; 
+    return AxisAlignedBox{ lower, upper };
 }
+
 
 void BoundingVolumeHierarchy::fillTree(std::vector<Triangle>& triangles, int index, int axis, Mesh& mesh) {
     AxisAlignedBox aabb = getAABB(triangles, mesh);
     std::vector<int> children;
     if (triangles.size() < min_triangles) {
-        LeafNode node = LeafNode{aabb, children, triangles, mesh};
+        LeafNode node = LeafNode{ aabb, children, triangles, mesh };
         tree.insert(tree.begin() + index, node);
     }
     else
     {
         children.push_back(2 * index + num_meshes - 1);
         children.push_back(2 * index + num_meshes);
-        Node node = Node{ aabb, children};
+        Node node = Node{ aabb, children };
         tree.insert(tree.begin() + index, node);
 
         Split split = doTheSplit(triangles, mesh.vertices, axis);
@@ -156,29 +157,41 @@ BoundingVolumeHierarchy::BoundingVolumeHierarchy(Scene* pScene)
 // draw.h to draw the various shapes. We have extended the AABB draw functions to support wireframe
 // mode, arbitrary colors and transparency.
 void BoundingVolumeHierarchy::debugDraw(int level)
-{   
-    std::vector<Node> tree = this->tree;
-    if (level == 0) 
-        drawAABB(this->tree[0].aabb, DrawMode::Filled, glm::vec3(0.05f, 1.0f, 0.05f), 0.1);    
-    if (level == 1) {
-        for (int i = 0; i < this->num_meshes; i++) {
-            drawAABB(this->tree[i + 1].aabb, DrawMode::Filled, glm::vec3(0.05f, 1.0f, 0.05f), 0.1);
+{
+
+    // Draw the AABB as a transparent green box.
+    //AxisAlignedBox aabb{ glm::vec3(-0.05f), glm::vec3(0.05f, 1.05f, 1.05f) };
+    //drawShape(aabb, DrawMode::Filled, glm::vec3(0.0f, 1.0f, 0.0f), 0.2f);
+
+    // Draw the AABB as a (white) wireframe box.
+    //AxisAlignedBox aabb { glm::vec3(-0.05f), glm::vec3(0.05f, 1.05f, 1.05f) };
+    //drawAABB(aabb, DrawMode::Wireframe);
+    //drawAABB(aabb, DrawMode::Filled, glm::vec3(0.05f, 1.0f, 0.05f), 0.1);
+    NodeLevel zero = NodeLevel{ tree.at(0),0 };
+    std::list<NodeLevel> queue;
+    queue.push_back(zero);
+    std::list<NodeLevel> atree;
+    while (!queue.empty()) {
+        NodeLevel n = queue.front();
+        if (n.level == level) {
+            atree.push_back(n);
         }
-    } else {   
-        int indexLast = this->num_meshes;   
-        for (int i = 2; i <= level; i++) {
-            indexLast += this->num_meshes * pow(2, i - 1);                     
-        }    
-        int indexFirst = indexLast - this->num_meshes * pow(2, level - 1) + 1;
-        for (int j = 0; j < this->num_meshes * pow(2, level - 1); j++) {
-            AxisAlignedBox aabb = tree[indexFirst].aabb;
-            indexFirst++;
-            drawAABB(aabb, DrawMode::Filled, glm::vec3(0.05f, 1.0f, 0.05f), 0.1);
-        }     
-        // Draw the AABB as a transparent green box.
-        //AxisAlignedBox aabb{ glm::vec3(-0.05f), glm::vec3(0.05f, 1.05f, 1.05f) };
-        //drawShape(aabb, DrawMode::Filled, glm::vec3(0.0f, 1.0f, 0.0f), 0.2f);
-    }  
+        if (n.level > level) {
+            break;
+        }
+        queue.pop_front();
+        if (!n.node.isLeaf()) {
+            for (int i : n.node.children) {
+                queue.push_back({ tree.at(i),n.level + 1 });
+            }
+        }
+    }
+    while (!atree.empty()) {
+        NodeLevel n = atree.front();
+        AxisAlignedBox box = n.node.aabb;
+        drawAABB(box, DrawMode::Filled, glm::vec3(0.05f, 1.0f, 0.05f), 0.1);
+        atree.pop_front();
+    }
 }
 
 int BoundingVolumeHierarchy::numLevels() const
@@ -209,4 +222,30 @@ bool BoundingVolumeHierarchy::intersect(Ray& ray, HitInfo& hitInfo) const
     for (const auto& sphere : m_pScene->spheres)
         hit |= intersectRayWithShape(sphere, ray, hitInfo);
     return hit;
+
+    //bool hit = false;
+    //hit = traversetree(tree[0], ray, hitInfo, hit);
+    //return hit;
 }
+/* bool BoundingVolumeHierarchy::traversetree(LeafNode n, Ray& ray, HitInfo& hitInfo, bool hit) {
+    if (!intersectRayWithShape(n.aabb, ray)) {
+        return false;
+    }
+    for (int i : n.children) {
+        traversetree(tree[i], ray, hitInfo, hit);
+    }
+    if (n.isLeaf()) {
+        for (const auto& tri : n.triangles) {
+            const auto v0 = n.mesh.vertices[tri[0]];
+            const auto v1 = n.mesh.vertices[tri[1]];
+            const auto v2 = n.mesh.vertices[tri[2]];
+            if (intersectRayWithTriangle(v0.p, v1.p, v2.p, ray, hitInfo)) {
+                hitInfo.material = n.mesh.material;
+                hit = true;
+            }
+        }
+        return hit;
+    }
+}
+
+
