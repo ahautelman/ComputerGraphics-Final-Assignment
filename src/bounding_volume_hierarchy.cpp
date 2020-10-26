@@ -112,16 +112,10 @@ BoundingVolumeHierarchy::BoundingVolumeHierarchy(Scene* pScene)
 
     std::vector<int> children;
 
-    // since each node has to store the INDICES of triangles, confusion may arise as to which mesh
-    // level 0 of the bvh contains the whole scene
-    // level 1 of the bvh contains all individual meshes
-    // following levels are split binary
     for (int i = 0; i < num_meshes; i++) {
         Mesh mesh = pScene->meshes.at(i);
         std::vector<Triangle> triangles;
         for (const auto& triangle : mesh.triangles) {
-            triangles.push_back(triangle);
-
             // building aabb for root
             float min_x = std::min(mesh.vertices[triangle[0]].p.x, std::min(
                 mesh.vertices[triangle[1]].p.x, mesh.vertices[triangle[2]].p.x));
@@ -143,14 +137,27 @@ BoundingVolumeHierarchy::BoundingVolumeHierarchy(Scene* pScene)
                 mesh.vertices[triangle[1]].p.z, mesh.vertices[triangle[2]].p.z));
             upper.z = std::max(upper.z, max_z);
         }
-        fillTree(triangles, i + 1, 0, mesh);
         children.push_back(i);
     }
-
     AxisAlignedBox aabb = AxisAlignedBox{ lower, upper };
     Node root = Node{ aabb, children };
     // insert root at index 0
     tree.insert(tree.begin(), root);
+
+    // since each node has to store the INDICES of triangles, confusion may arise as to which mesh
+    // level 0 of the bvh contains the whole scene
+    // level 1 of the bvh contains all individual meshes
+    // following levels are split binary
+    for (int i = 0; i < num_meshes; i++) {
+        Mesh mesh = pScene->meshes.at(i);
+        std::vector<Triangle> triangles;
+        for (const auto& triangle : mesh.triangles) {
+            triangles.push_back(triangle);
+        }
+        fillTree(triangles, i + 1, 0, mesh);
+    }
+
+
 }
 
 // Use this function to visualize your BVH. This can be useful for debugging. Use the functions in
@@ -247,5 +254,6 @@ bool BoundingVolumeHierarchy::intersect(Ray& ray, HitInfo& hitInfo) const
         return hit;
     }
 }
+*/
 
 

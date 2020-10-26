@@ -54,7 +54,7 @@ public:
     bool intersect(Ray& ray, HitInfo& hitInfo) const;
 
     AxisAlignedBox getAABB(std::vector<Triangle> triangles, Mesh& mesh);
-    bool BoundingVolumeHierarchy::traversetree(LeafNode n, Ray& ray, HitInfo& hitInfo, bool hit);
+    //bool BoundingVolumeHierarchy::traversetree(LeafNode n, Ray& ray, HitInfo& hitInfo, bool hit);
 private:
     Scene* m_pScene;
 
