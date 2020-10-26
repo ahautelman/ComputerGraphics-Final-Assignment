@@ -156,8 +156,6 @@ BoundingVolumeHierarchy::BoundingVolumeHierarchy(Scene* pScene)
         }
         fillTree(triangles, i + 1, 0, mesh);
     }
-
-
 }
 
 // Use this function to visualize your BVH. This can be useful for debugging. Use the functions in
@@ -165,7 +163,6 @@ BoundingVolumeHierarchy::BoundingVolumeHierarchy(Scene* pScene)
 // mode, arbitrary colors and transparency.
 void BoundingVolumeHierarchy::debugDraw(int level)
 {
-
     // Draw the AABB as a transparent green box.
     //AxisAlignedBox aabb{ glm::vec3(-0.05f), glm::vec3(0.05f, 1.05f, 1.05f) };
     //drawShape(aabb, DrawMode::Filled, glm::vec3(0.0f, 1.0f, 0.0f), 0.2f);
@@ -174,7 +171,7 @@ void BoundingVolumeHierarchy::debugDraw(int level)
     //AxisAlignedBox aabb { glm::vec3(-0.05f), glm::vec3(0.05f, 1.05f, 1.05f) };
     //drawAABB(aabb, DrawMode::Wireframe);
     //drawAABB(aabb, DrawMode::Filled, glm::vec3(0.05f, 1.0f, 0.05f), 0.1);
-    NodeLevel zero = NodeLevel{ tree.at(0),0 };
+    NodeLevel zero = NodeLevel{ tree.at(0), 0 };
     std::list<NodeLevel> queue;
     queue.push_back(zero);
     std::list<NodeLevel> atree;
@@ -211,7 +208,8 @@ int BoundingVolumeHierarchy::numLevels() const
 // by a bounding volume hierarchy acceleration structure as described in the assignment. You can change any
 // file you like, including bounding_volume_hierarchy.h .
 bool BoundingVolumeHierarchy::intersect(Ray& ray, HitInfo& hitInfo) const
-{
+{    
+    /*
     bool hit = false;
     // Intersect with all triangles of all meshes.
     for (const auto& mesh : m_pScene->meshes) {
@@ -228,32 +226,38 @@ bool BoundingVolumeHierarchy::intersect(Ray& ray, HitInfo& hitInfo) const
     // Intersect with spheres.
     for (const auto& sphere : m_pScene->spheres)
         hit |= intersectRayWithShape(sphere, ray, hitInfo);
+    return hit; 
+    */
+    bool hit = false;
+    hit = traversetree(0, ray, hitInfo);
+    
     return hit;
-
-    //bool hit = false;
-    //hit = traversetree(tree[0], ray, hitInfo, hit);
-    //return hit;
+   
 }
-/* bool BoundingVolumeHierarchy::traversetree(LeafNode n, Ray& ray, HitInfo& hitInfo, bool hit) {
-    if (!intersectRayWithShape(n.aabb, ray)) {
-        return false;
+
+bool BoundingVolumeHierarchy::traversetree(int index, Ray& ray, HitInfo& hitInfo) const {
+    Node node = this->tree.at(index);
+    bool hit = false;
+    if (!intersectRayWithShape(node.aabb, ray)) {
+        return hit;
     }
-    for (int i : n.children) {
-        traversetree(tree[i], ray, hitInfo, hit);
-    }
-    if (n.isLeaf()) {
-        for (const auto& tri : n.triangles) {
-            const auto v0 = n.mesh.vertices[tri[0]];
-            const auto v1 = n.mesh.vertices[tri[1]];
-            const auto v2 = n.mesh.vertices[tri[2]];
+    else if (node.isLeaf()) {
+        for (const auto& tri : node.triangles) {
+            const auto v0 = node.mesh.vertices[tri[0]];
+            const auto v1 = node.mesh.vertices[tri[1]];
+            const auto v2 = node.mesh.vertices[tri[2]];
             if (intersectRayWithTriangle(v0.p, v1.p, v2.p, ray, hitInfo)) {
-                hitInfo.material = n.mesh.material;
+                hitInfo.material = node.mesh.material;
                 hit = true;
             }
         }
         return hit;
     }
+    else {
+        for (int child : tree.at(index).children) {
+            traversetree(child, ray, hitInfo);
+        }
+    }    
 }
-*/
 
 
