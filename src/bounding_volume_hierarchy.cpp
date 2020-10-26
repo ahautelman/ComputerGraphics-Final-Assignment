@@ -137,7 +137,7 @@ BoundingVolumeHierarchy::BoundingVolumeHierarchy(Scene* pScene)
                 mesh.vertices[triangle[1]].p.z, mesh.vertices[triangle[2]].p.z));
             upper.z = std::max(upper.z, max_z);
         }
-        children.push_back(i);
+        children.push_back(i + 1);
     }
     AxisAlignedBox aabb = AxisAlignedBox{ lower, upper };
     Node root = Node{ aabb, children };
