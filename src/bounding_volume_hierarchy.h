@@ -19,17 +19,14 @@ struct Node
     // array used to store the indeces of children in the tree
     std::vector<int> children;
 
-    bool isLeaf();
-};
-
-struct LeafNode : public Node
-{
     // if the node is leaf, array is used to store the triangles contained
     // TODO change from vector<Triangle> to vector<int> (containing the INDICES of triangles ????)
     std::vector<Triangle> triangles;
 
     // only leaf nodes have the mesh attribute
     Mesh mesh;
+
+    bool isLeaf();
 };
 
 struct NodeLevel

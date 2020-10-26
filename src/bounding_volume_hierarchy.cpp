@@ -87,7 +87,7 @@ void BoundingVolumeHierarchy::fillTree(std::vector<Triangle>& triangles, int ind
     AxisAlignedBox aabb = getAABB(triangles, mesh);
     std::vector<int> children;
     if (triangles.size() < min_triangles) {
-        LeafNode node = LeafNode{ aabb, children, triangles, mesh };
+        Node node = Node{ aabb, children, triangles, mesh };
         tree.insert(tree.begin() + index, node);
     }
     else
