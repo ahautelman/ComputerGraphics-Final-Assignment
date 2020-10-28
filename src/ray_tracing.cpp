@@ -231,10 +231,6 @@ bool intersectRayWithShape(const AxisAlignedBox& box, Ray& ray)
     if (tin > ray.t)
         return false;
     else {
-        if (tin < 0)
-            ray.t = tout;
-        else
-            ray.t = tin;
         return true;
     }
 }

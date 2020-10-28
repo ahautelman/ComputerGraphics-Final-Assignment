@@ -223,14 +223,15 @@ bool BoundingVolumeHierarchy::intersect(Ray& ray, HitInfo& hitInfo) const
             }
         }
     }
+    */ 
+    bool hit = false;
+    // Intersect with mesh.
+    hit = traversetree(0, ray, hitInfo);
+
     // Intersect with spheres.
     for (const auto& sphere : m_pScene->spheres)
         hit |= intersectRayWithShape(sphere, ray, hitInfo);
-    return hit; 
-    */
-    bool hit = false;
-    hit = traversetree(0, ray, hitInfo);
-    
+ 
     return hit;
    
 }
