@@ -127,14 +127,17 @@ static void renderRayTracing(const Scene& scene, const Trackball& camera, const 
         }
     }
 }
-static void motionBlur(const Scene& scene, Screen& screen, Trackball& cam, const BoundingVolumeHierarchy& bvh, int frames, bool direction, int axis)
+static void motionBlur(const Scene& scene, Screen& screen, Trackball& cam, const BoundingVolumeHierarchy& bvh, int iterations, bool direction, int axis)
 {
-    for (int i = 0; i < frames; i++) {
+#ifdef USE_OPENMP
+#pragma omp parallel for schedule(dynamic,2)
+#endif
+    for (int i = 0; i < iterations; i++) {
         glm::vec3 change{ 0 };
         if (!direction)
-            change[axis] = 0.2 / frames * -1.0f;
+            change[axis] = 0.25 / iterations * -1.0f;
         else
-            change[axis] = 0.2 / frames;
+            change[axis] = 0.25 / iterations;
         cam.lookAtSet(change + cam.lookAt());
 
         //Copied from renderRayTracing()
@@ -211,7 +214,7 @@ int main(int argc, char** argv)
     int bvhDebugLevel = 0;
     bool debugBVH{ false };
     bool mBlur{ false };
-    int frames = 1;
+    int iterations = 5;
     int axis = 1;
     bool direction = true;
 
@@ -260,7 +263,7 @@ int main(int argc, char** argv)
                 using clock = std::chrono::high_resolution_clock;
                 const auto start = clock::now();
                 if (mBlur) {
-                    motionBlur(scene, screen, camera, bvh, frames, direction, axis);
+                    motionBlur(scene, screen, camera, bvh, iterations, direction, axis);
                 }
                 else {
                     renderRayTracing(scene, camera, bvh, screen);
@@ -280,7 +283,7 @@ int main(int argc, char** argv)
                 ImGui::SliderInt("BVH Level", &bvhDebugLevel, 0, bvh.numLevels() - 1);
             ImGui::Checkbox("Motion Blur", &mBlur);
             if (mBlur) {
-                ImGui::SliderInt("Frames", &frames, 1, 200);
+                ImGui::SliderInt("Frames", &iterations, 1, 200);
                 ImGui::Checkbox("Positive direction", &direction);
                 ImGui::SliderInt("Axis", &axis, 0, 2);
             }
