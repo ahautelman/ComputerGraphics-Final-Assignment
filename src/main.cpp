@@ -113,7 +113,7 @@ static void renderOpenGL(const Scene& scene, const Trackball& camera, int select
 static void renderRayTracing(const Scene& scene, const Trackball& camera, const BoundingVolumeHierarchy& bvh, Screen& screen)
 {
 #ifdef USE_OPENMP
-#pragma omp parallel for
+#pragma omp parallel for schedule(dynamic,2)
 #endif
     for (int y = 0; y < windowResolution.y; y++) {
         for (int x = 0; x != windowResolution.x; x++) {
