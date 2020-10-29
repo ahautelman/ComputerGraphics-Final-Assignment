@@ -177,7 +177,7 @@ BoundingVolumeHierarchy::BoundingVolumeHierarchy(Scene* pScene)
 {
     // i resort to using this garbage code cus vectors are frustrating
     // you might want to increase this number if your custom model has lots of meshes
-    for (int i = 0; i < 100; i++) {
+    for (int i = 0; i < 1000; i++) {
         tree.push_back(Node{});
     }
 
