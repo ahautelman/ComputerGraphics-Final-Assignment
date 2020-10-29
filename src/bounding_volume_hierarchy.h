@@ -2,10 +2,6 @@
 #include "ray_tracing.h"
 #include "scene.h"
 
-// if split contains less than min_triangles, stop splitting
-// this number was chosen arbitrarily
-const int min_triangles = 100;
-
 struct Split
 {
     std::vector<Triangle> subdivision1;
@@ -43,7 +39,7 @@ public:
     void debugDraw(int level);
     int numLevels() const;
 
-    void fillTree(std::vector<Triangle>& triangles, int index, int axis, Mesh& mesh);
+    void fillTree(std::vector<Triangle>& triangles, int index, int axis, Mesh& mesh, int level);
 
     // Return true if something is hit, returns false otherwise.
     // Only find hits if they are closer than t stored in the ray and the intersection
