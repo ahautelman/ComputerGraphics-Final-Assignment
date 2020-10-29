@@ -71,6 +71,17 @@ glm::vec3 Trackball::lookAt() const
 {
     return m_lookAt;
 }
+void Trackball::lookAtSet(glm::vec3 set) {
+    m_lookAt = set;
+}
+glm::vec3 Trackball::rotation() const
+{
+    return m_rotationEulerAngles;
+}
+float Trackball::distance() const
+{
+    return m_distanceFromLookAt;
+}
 
 glm::mat4 Trackball::viewMatrix() const
 {
@@ -129,13 +140,14 @@ void Trackball::mouseMoveCallback(const glm::vec2& pos)
     if (rotateXY || translateXY) {
         // Amount of cursor motion compared to the previous frame. Positive = right/top
         const glm::vec2 delta = pos - m_prevCursorPos;
-        
+
         if (rotateXY) {
             // Rotate the camera around the lookat point.
             m_rotationEulerAngles.x = std::clamp(m_rotationEulerAngles.x - glm::radians(delta.y * rotationSpeedFactor), -glm::half_pi<float>(), +glm::half_pi<float>());
             m_rotationEulerAngles.y -= glm::radians(delta.x * rotationSpeedFactor);
 
-        } else {
+        }
+        else {
             // Translate the camera in the image plane.
             m_lookAt += delta.x * translationSpeedFactor * left(); // Mouse right => camera left
             m_lookAt -= delta.y * translationSpeedFactor * up(); // Mouse up => camera down

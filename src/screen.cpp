@@ -12,7 +12,7 @@ DISABLE_WARNINGS_POP()
 
 Screen::Screen(const glm::ivec2& resolution)
     : m_resolution(resolution)
-    , m_textureData(size_t(resolution.x * resolution.y), glm::vec3(0.0f))
+    , m_textureData(size_t(resolution.x* resolution.y), glm::vec3(0.0f))
 {
     // Generate texture
     glGenTextures(1, &m_texture);
@@ -33,6 +33,12 @@ void Screen::setPixel(int x, int y, const glm::vec3& color)
     // OpenGL / stbi like the origin / (-1,-1) to be at the TOP left corner so transform the y coordinate.
     const int i = (m_resolution.y - 1 - y) * m_resolution.x + x;
     m_textureData[i] = glm::vec4(color, 1.0f);
+}
+
+glm::vec3 Screen::getPixel(int x, int y) {
+    int index = (m_resolution.y - 1 - y) * m_resolution.x + x;;
+
+    return m_textureData.at(index);
 }
 
 void Screen::writeBitmapToFile(const std::filesystem::path& filePath)

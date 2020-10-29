@@ -119,11 +119,44 @@ static void renderRayTracing(const Scene& scene, const Trackball& camera, const 
         for (int x = 0; x != windowResolution.x; x++) {
             // NOTE: (-1, -1) at the bottom left of the screen, (+1, +1) at the top right of the screen.
             const glm::vec2 normalizedPixelPos{
-                float(x) / windowResolution.x * 2.0f - 1.0f,
-                float(y) / windowResolution.y * 2.0f - 1.0f
+                    float(x) / windowResolution.x * 2.0f - 1.0f,
+                    float(y) / windowResolution.y * 2.0f - 1.0f
             };
             const Ray cameraRay = camera.generateRay(normalizedPixelPos);
             screen.setPixel(x, y, Trace(scene, 0, cameraRay, { 0,0,0 }, bvh));
+        }
+    }
+}
+static void motionBlur(const Scene& scene, Screen& screen, Trackball& cam, const BoundingVolumeHierarchy& bvh, int frames, bool direction, int axis)
+{
+    for (int i = 0; i < frames; i++) {
+        glm::vec3 change{ 0 };
+        if (!direction)
+            change[axis] = 0.2 / frames * -1.0f;
+        else
+            change[axis] = 0.2 / frames;
+        cam.lookAtSet(change + cam.lookAt());
+
+        //Copied from renderRayTracing()
+        for (int y = 0; y < windowResolution.y; y++) {
+            for (int x = 0; x != windowResolution.x; x++) {
+                // NOTE: (-1, -1) at the bottom left of the screen, (+1, +1) at the top right of the screen.
+                const glm::vec2 normalizedPixelPos{
+                        float(x) / windowResolution.x * 2.0f - 1.0f,
+                        float(y) / windowResolution.y * 2.0f - 1.0f
+                };
+                const Ray cameraRay = cam.generateRay(normalizedPixelPos);
+
+                glm::vec3 fraction(1.0f / (i + 1));
+                glm::vec3 color = getFinalColor(scene, bvh, cameraRay);
+                glm::vec3 averagecolor = fraction * color;
+                glm::vec3 pixelcolor = fraction * screen.getPixel(x, y);
+
+                if (i > 0) {
+                    color = averagecolor + pixelcolor;
+                }
+                screen.setPixel(x, y, color);
+            }
         }
     }
 }
@@ -177,6 +210,11 @@ int main(int argc, char** argv)
 
     int bvhDebugLevel = 0;
     bool debugBVH{ false };
+    bool mBlur{ false };
+    int frames = 1;
+    int axis = 1;
+    bool direction = true;
+
     ViewMode viewMode{ ViewMode::Rasterization };
 
     window.registerKeyCallback([&](int key, int /* scancode */, int action, int /* mods */) {
@@ -221,7 +259,13 @@ int main(int argc, char** argv)
             {
                 using clock = std::chrono::high_resolution_clock;
                 const auto start = clock::now();
-                renderRayTracing(scene, camera, bvh, screen);
+                if (mBlur) {
+                    motionBlur(scene, screen, camera, bvh, frames, direction, axis);
+                }
+                else {
+                    renderRayTracing(scene, camera, bvh, screen);
+                }
+
                 const auto end = clock::now();
                 std::cout << "Time to render image: " << std::chrono::duration<float, std::milli>(end - start).count() << " milliseconds" << std::endl;
             }
@@ -234,6 +278,12 @@ int main(int argc, char** argv)
             ImGui::Checkbox("Draw BVH", &debugBVH);
             if (debugBVH)
                 ImGui::SliderInt("BVH Level", &bvhDebugLevel, 0, bvh.numLevels() - 1);
+            ImGui::Checkbox("Motion Blur", &mBlur);
+            if (mBlur) {
+                ImGui::SliderInt("Frames", &frames, 1, 200);
+                ImGui::Checkbox("Positive direction", &direction);
+                ImGui::SliderInt("Axis", &axis, 0, 2);
+            }
         }
 
         ImGui::Spacing();
