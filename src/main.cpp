@@ -132,34 +132,28 @@ static void motionBlur(const Scene& scene, Screen& screen, Trackball& cam, const
 #ifdef USE_OPENMP
 #pragma omp parallel for schedule(dynamic,2)
 #endif
-    for (int i = 0; i < iterations; i++) {
-        glm::vec3 change{ 0 };
-        if (!direction)
-            change[axis] = 0.25 / iterations * -1.0f;
-        else
-            change[axis] = 0.25 / iterations;
-        cam.lookAtSet(change + cam.lookAt());
+    for (int y = 0; y < windowResolution.y; y++) {
+        for (int x = 0; x != windowResolution.x; x++) {
+            glm::vec3 sum{ 0 };
+            // NOTE: (-1, -1) at the bottom left of the screen, (+1, +1) at the top right of the screen.
+            const glm::vec2 normalizedPixelPos{
+                    float(x) / windowResolution.x * 2.0f - 1.0f,
+                    float(y) / windowResolution.y * 2.0f - 1.0f
+            };
+            Ray cameraRay = cam.generateRay(normalizedPixelPos);
 
-        //Copied from renderRayTracing()
-        for (int y = 0; y < windowResolution.y; y++) {
-            for (int x = 0; x != windowResolution.x; x++) {
-                // NOTE: (-1, -1) at the bottom left of the screen, (+1, +1) at the top right of the screen.
-                const glm::vec2 normalizedPixelPos{
-                        float(x) / windowResolution.x * 2.0f - 1.0f,
-                        float(y) / windowResolution.y * 2.0f - 1.0f
-                };
-                const Ray cameraRay = cam.generateRay(normalizedPixelPos);
+            for (int i = 0; i < iterations; i++) {
+                glm::vec3 change{ 0 };
+                if (!direction)
+                    change[axis] = -0.1f / iterations;
+                else
+                    change[axis] = 0.1f / iterations;
+                cameraRay.origin += change;
 
-                glm::vec3 fraction(1.0f / (i + 1));
                 glm::vec3 color = getFinalColor(scene, bvh, cameraRay);
-                glm::vec3 averagecolor = fraction * color;
-                glm::vec3 pixelcolor = fraction * screen.getPixel(x, y);
-
-                if (i > 0) {
-                    color = averagecolor + pixelcolor;
-                }
-                screen.setPixel(x, y, color);
+                sum += color;
             }
+            screen.setPixel(x, y, sum / glm::vec3(iterations));
         }
     }
 }
@@ -215,7 +209,7 @@ int main(int argc, char** argv)
     bool debugBVH{ false };
     bool mBlur{ false };
     int iterations = 5;
-    int axis = 1;
+    int axis = 2;
     bool direction = true;
 
     ViewMode viewMode{ ViewMode::Rasterization };
@@ -283,7 +277,7 @@ int main(int argc, char** argv)
                 ImGui::SliderInt("BVH Level", &bvhDebugLevel, 0, bvh.numLevels() - 1);
             ImGui::Checkbox("Motion Blur", &mBlur);
             if (mBlur) {
-                ImGui::SliderInt("Frames", &iterations, 1, 200);
+                ImGui::SliderInt("Iterations", &iterations, 1, 200);
                 ImGui::Checkbox("Positive direction", &direction);
                 ImGui::SliderInt("Axis", &axis, 0, 2);
             }
