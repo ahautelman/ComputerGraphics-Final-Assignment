@@ -1,5 +1,6 @@
 #include "bounding_volume_hierarchy.h"
 #include "draw.h"
+#include <glm/geometric.hpp>
 
 bool Node::isLeaf() {
     if (children.empty())
@@ -82,7 +83,6 @@ Split doTheSplit(std::vector<Triangle> triangles, std::vector<Vertex> vertices, 
     std::vector<Triangle> subdivision2;
     float mean = 0;
     float sum = 0;
-
     for (Triangle triangle : triangles) {
         if (axis == 0)
             sum += triangle.x;
@@ -95,7 +95,6 @@ Split doTheSplit(std::vector<Triangle> triangles, std::vector<Vertex> vertices, 
         mean = 0;
     else
         mean = sum / triangles.size();
-
     for (Triangle triangle : triangles) {
         if (axis == 0) {
             if (triangle.x >= mean)
@@ -116,7 +115,6 @@ Split doTheSplit(std::vector<Triangle> triangles, std::vector<Vertex> vertices, 
                 subdivision2.push_back(triangle);
         }
     }
-
     return Split{ subdivision1, subdivision2 };
 }
 */
@@ -167,8 +165,8 @@ void BoundingVolumeHierarchy::fillTree(std::vector<Triangle>& triangles, int ind
         tree[index] = node;
 
         Split split = doTheSplit(triangles, mesh, axis);
-        fillTree(split.subdivision1, 2 * index + num_meshes - 1, axis % 3 + 1, mesh, level+1);
-        fillTree(split.subdivision2, 2 * index + num_meshes, axis % 3 + 1, mesh, level+1);
+        fillTree(split.subdivision1, 2 * index + num_meshes - 1, axis % 3 + 1, mesh, level + 1);
+        fillTree(split.subdivision2, 2 * index + num_meshes, axis % 3 + 1, mesh, level + 1);
     }
 }
 
@@ -275,7 +273,7 @@ void BoundingVolumeHierarchy::debugDraw(int level)
 
 int BoundingVolumeHierarchy::numLevels() const
 {
-    return 5;
+    return 1;
 }
 
 // Return true if something is hit, returns false otherwise. Only find hits if they are closer than t stored
@@ -283,57 +281,36 @@ int BoundingVolumeHierarchy::numLevels() const
 // by a bounding volume hierarchy acceleration structure as described in the assignment. You can change any
 // file you like, including bounding_volume_hierarchy.h .
 bool BoundingVolumeHierarchy::intersect(Ray& ray, HitInfo& hitInfo) const
-{    
-    /*
+{
     bool hit = false;
-    // Intersect with all triangles of all meshes.
-    for (const auto& mesh : m_pScene->meshes) {
-        for (const auto& tri : mesh.triangles) {
-            const auto v0 = mesh.vertices[tri[0]];
-            const auto v1 = mesh.vertices[tri[1]];
-            const auto v2 = mesh.vertices[tri[2]];
-            if (intersectRayWithTriangle(v0.p, v1.p, v2.p, ray, hitInfo)) {
-                hitInfo.material = mesh.material;
-                hit = true;
+    std::vector<Node> stack;
+    stack.push_back(tree.at(0));
+    while (!stack.empty()) {
+        Node node = stack.front();
+        stack.erase(stack.begin());
+        float originT = ray.t;
+        if (!intersectRayWithShape(node.aabb, ray)) {
+            continue;
+        }
+        ray.t = originT;
+        if (node.isLeaf()) {
+            for (const auto& tri : node.triangles) {
+                const auto v0 = node.mesh.vertices[tri[0]];
+                const auto v1 = node.mesh.vertices[tri[1]];
+                const auto v2 = node.mesh.vertices[tri[2]];
+                bool currentHit = intersectRayWithTriangle(v0.p, v1.p, v2.p, ray, hitInfo);
+                if (currentHit) {
+                    hitInfo.normal = glm::normalize(glm::cross((v1.p - v0.p), (v2.p - v0.p)));
+                    hitInfo.material = node.mesh.material;
+                }
+                hit |= currentHit;
+            }
+        }
+        else {
+            for (int index : node.children) {
+                stack.push_back(tree.at(index));
             }
         }
     }
-    */ 
-    bool hit = false;
-    // Intersect with mesh.
-    hit = traversetree(0, ray, hitInfo);
-
-    // Intersect with spheres.
-    for (const auto& sphere : m_pScene->spheres)
-        hit |= intersectRayWithShape(sphere, ray, hitInfo);
- 
     return hit;
-   
 }
-
-bool BoundingVolumeHierarchy::traversetree(int index, Ray& ray, HitInfo& hitInfo) const {
-    Node node = this->tree.at(index);
-    bool hit = false;
-    if (!intersectRayWithShape(node.aabb, ray)) {
-        return hit;
-    }
-    else if (node.isLeaf()) {
-        for (const auto& tri : node.triangles) {
-            const auto v0 = node.mesh.vertices[tri[0]];
-            const auto v1 = node.mesh.vertices[tri[1]];
-            const auto v2 = node.mesh.vertices[tri[2]];
-            if (intersectRayWithTriangle(v0.p, v1.p, v2.p, ray, hitInfo)) {
-                hitInfo.material = node.mesh.material;
-                hit = true;
-            }
-        }
-        return hit;
-    }
-    else {
-        for (int child : tree.at(index).children) {
-            traversetree(child, ray, hitInfo);
-        }
-    }    
-}
-
-

@@ -145,15 +145,17 @@ static void motionBlur(const Scene& scene, Screen& screen, Trackball& cam, const
             for (int i = 0; i < iterations; i++) {
                 glm::vec3 change{ 0 };
                 if (!direction)
-                    change[axis] = -0.1f / iterations;
+                    change[axis] = -0.1f / (iterations);
                 else
-                    change[axis] = 0.1f / iterations;
+                    change[axis] = 0.1f / (iterations);
                 cameraRay.origin += change;
 
                 glm::vec3 color = getFinalColor(scene, bvh, cameraRay);
                 sum += color;
-            }
-            screen.setPixel(x, y, sum / glm::vec3(iterations));
+            }         
+            glm::vec3 finalcolor = sum / glm::vec3(iterations);
+            glm::vec3 reflection = Trace(scene, 0, cameraRay, finalcolor, bvh) * glm::vec3(0.5);
+            screen.setPixel(x, y, reflection);
         }
     }
 }
