@@ -276,6 +276,24 @@ int BoundingVolumeHierarchy::numLevels() const
     return 1;
 }
 
+static glm::vec3 interpolateNormal(const glm::vec3& v0, const glm::vec3& v1, const glm::vec3& v2, const glm::vec3& p, const glm::vec3& n0, const glm::vec3& n1, const glm::vec3& n2) {
+    glm::vec3 A = v1 - v0;
+    glm::vec3 B = v2 - v0;
+    glm::vec3 C = p - v0;
+
+    double dot0 = glm::dot(A, A);
+    double dot1 = glm::dot(A, B);
+    double dot2 = glm::dot(A, C);
+    double dot3 = glm::dot(B, B);
+    double dot4 = glm::dot(B, C);
+
+    double alpha = (dot2 * dot3 - dot1 * dot4) / (dot0 * dot3 - dot1 * dot1);
+    double beta = (dot0 * dot4 - dot1 * dot2) / (dot0 * dot3 - dot1 * dot1);
+    double gamma = 1 - alpha - beta;
+    glm::vec3 avgNormal = n0 * glm::vec3(gamma) + n1 * glm::vec3(alpha) + n2 * glm::vec3(beta);
+    return avgNormal;
+}
+
 // Return true if something is hit, returns false otherwise. Only find hits if they are closer than t stored
 // in the ray and if the intersection is on the correct side of the origin (the new t >= 0). Replace the code
 // by a bounding volume hierarchy acceleration structure as described in the assignment. You can change any
@@ -283,9 +301,10 @@ int BoundingVolumeHierarchy::numLevels() const
 bool BoundingVolumeHierarchy::intersect(Ray& ray, HitInfo& hitInfo) const
 {
     bool hit = false;
+    bool interpolated = true;
     std::vector<Node> stack;
     stack.push_back(tree.at(0));
-    while (!stack.empty()) {
+    while (!stack.empty()) {        
         Node node = stack.front();
         stack.erase(stack.begin());
         float originT = ray.t;
@@ -299,9 +318,14 @@ bool BoundingVolumeHierarchy::intersect(Ray& ray, HitInfo& hitInfo) const
                 const auto v1 = node.mesh.vertices[tri[1]];
                 const auto v2 = node.mesh.vertices[tri[2]];
                 bool currentHit = intersectRayWithTriangle(v0.p, v1.p, v2.p, ray, hitInfo);
-                if (currentHit) {
-                    hitInfo.normal = glm::normalize(glm::cross((v1.p - v0.p), (v2.p - v0.p)));
+                if (interpolated && currentHit) {
+                    glm::vec3 normal = interpolateNormal(v0.p, v1.p, v2.p, (ray.origin + ray.direction * ray.t), v0.n, v1.n, v2.n);
+                    hitInfo.normal = normal;
                     hitInfo.material = node.mesh.material;
+                }
+                else if (currentHit) {                    
+                    hitInfo.material = node.mesh.material;
+                    hitInfo.normal = glm::normalize(glm::cross((v1.p - v0.p), (v2.p - v0.p)));
                 }
                 hit |= currentHit;
             }
