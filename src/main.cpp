@@ -84,7 +84,7 @@ static bool hardShadows(glm::vec3 intersection, const Scene& scene, const Boundi
     Ray shadowRay;
     HitInfo hitInfoSR;
     shadowRay.direction = glm::normalize(lightPos - intersection);
-    shadowRay.origin = intersection + shadowRay.direction * glm::vec3(0.001);
+    shadowRay.origin = intersection + shadowRay.direction * glm::vec3(0.00001);
 
     if (bvh.intersect(shadowRay, hitInfoSR)) {
         glm::vec3 intersectionSR = shadowRay.origin + shadowRay.direction * shadowRay.t;
@@ -201,9 +201,9 @@ static glm::vec3 Trace(Scene scene, int level, Ray ray, glm::vec3 color, Boundin
 }
 static glm::vec3 Shade(Scene scene, int level, Ray ray, glm::vec3 color, BoundingVolumeHierarchy bvh, HitInfo hitInfo) {
     glm::vec3 direct = getFinalColor(scene, bvh, ray);
-    float x = ray.origin.x + 0.1 * glm::normalize(glm::reflect(ray.direction, hitInfo.normal)).x;
-    float y = ray.origin.y + 0.1 * glm::normalize(glm::reflect(ray.direction, hitInfo.normal)).y;
-    float z = ray.origin.z + 0.1 * glm::normalize(glm::reflect(ray.direction, hitInfo.normal)).z;
+    float x = ray.origin.x + 0.00001 * glm::normalize(glm::reflect(ray.direction, hitInfo.normal)).x;
+    float y = ray.origin.y + 0.00001 * glm::normalize(glm::reflect(ray.direction, hitInfo.normal)).y;
+    float z = ray.origin.z + 0.00001 * glm::normalize(glm::reflect(ray.direction, hitInfo.normal)).z;
     glm::vec3 offset = { x,y,z };
     if (hitInfo.material.ks.x != 0 || hitInfo.material.ks.y != 0 || hitInfo.material.ks.z != 0) {
         Ray reflectray = { offset + ray.t * ray.direction,glm::normalize(glm::reflect(ray.direction, hitInfo.normal)),std::numeric_limits<float>::max() };
@@ -289,6 +289,7 @@ int main(int argc, char** argv)
     int iterations = 5;
     int axis = 2;
     bool direction = true;
+    bool interpolate = false;
 
     ViewMode viewMode{ ViewMode::Rasterization };
 
@@ -358,6 +359,13 @@ int main(int argc, char** argv)
                 ImGui::SliderInt("Iterations", &iterations, 1, 200);
                 ImGui::Checkbox("Positive direction", &direction);
                 ImGui::SliderInt("Axis", &axis, 0, 2);
+            }
+            ImGui::Checkbox("Interpolation", &interpolate);
+            if (interpolate == true) {
+                bvh.interpolated = true;
+            }
+            else {
+                bvh.interpolated = false;
             }
         }
 

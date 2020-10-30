@@ -299,7 +299,7 @@ static glm::vec3 interpolateNormal(const glm::vec3& v0, const glm::vec3& v1, con
 bool BoundingVolumeHierarchy::intersect(Ray& ray, HitInfo& hitInfo) const
 {
     bool hit = false;
-    bool interpolated = false;
+    
     std::vector<Node> stack;
     stack.push_back(tree.at(0));
     while (!stack.empty()) {        
