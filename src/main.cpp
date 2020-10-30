@@ -143,8 +143,8 @@ static void renderRayTracing(const Scene& scene, const Trackball& camera, const 
                     float(y) / windowResolution.y * 2.0f - 1.0f
             };
             const Ray cameraRay = camera.generateRay(normalizedPixelPos);
-            bool reflectionMode = true;
-            if (reflectionMode) {
+            
+            if (bvh.reflectionMode) {
                 screen.setPixel(x, y, Trace(scene, 0, cameraRay, { 0,0,0 }, bvh));
             }
             else {
@@ -179,9 +179,16 @@ static void motionBlur(const Scene& scene, Screen& screen, Trackball& cam, const
                 glm::vec3 color = getFinalColor(scene, bvh, cameraRay);
                 sum += color;
             }
-            glm::vec3 finalcolor = sum / glm::vec3(iterations);
-            glm::vec3 reflection = Trace(scene, 0, cameraRay, finalcolor, bvh) * glm::vec3(0.5);
-            screen.setPixel(x, y, reflection);
+            glm::vec3 averagecolor = sum / glm::vec3(iterations);           
+
+            if (bvh.reflectionMode) {
+                glm::vec3 finalcolor = Trace(scene, 0, cameraRay, averagecolor, bvh) * glm::vec3(0.5);
+                screen.setPixel(x, y, finalcolor);
+            }
+            else {
+                glm::vec3 finalcolor = glossyTrace(scene, 0, cameraRay, averagecolor, bvh) * glm::vec3(0.5);
+                screen.setPixel(x, y, finalcolor);
+            }           
         }
     }
 }
@@ -291,6 +298,7 @@ int main(int argc, char** argv)
     bool direction = true;
     bool bloom = false;
     bool interpolate = false;
+    bool gTrace = false;
 
     ViewMode viewMode{ ViewMode::Rasterization };
 
@@ -368,6 +376,13 @@ int main(int argc, char** argv)
             }
             else {
                 bvh.interpolated = false;
+            }
+            ImGui::Checkbox("Glossy Trace", &gTrace);
+            if (gTrace == false) {
+                bvh.reflectionMode = true;
+            }
+            else {
+                bvh.reflectionMode = true;
             }
         }
 

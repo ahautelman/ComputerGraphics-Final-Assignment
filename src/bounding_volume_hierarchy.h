@@ -46,7 +46,7 @@ public:
     // is on the correct side of the origin (the new t >= 0).
     bool intersect(Ray& ray, HitInfo& hitInfo) const;
     bool interpolated = false;
-
+    bool reflectionMode = true;
     AxisAlignedBox getAABB(std::vector<Triangle> triangles, Mesh& mesh);
     bool traversetree(int index, Ray& ray, HitInfo& hitInfo) const;
     //bool BoundingVolumeHierarchy::traversetree(LeafNode n, Ray& ray, HitInfo& hitInfo, bool hit);
