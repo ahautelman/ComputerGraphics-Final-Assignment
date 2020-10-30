@@ -77,47 +77,6 @@ Split doTheSplit(std::vector<Triangle> triangles, Mesh& mesh, int axis) {
     return Split{ subdivision1, subdivision2 };
 }
 
-/*
-Split doTheSplit(std::vector<Triangle> triangles, std::vector<Vertex> vertices, int axis) {
-    std::vector<Triangle> subdivision1;
-    std::vector<Triangle> subdivision2;
-    float mean = 0;
-    float sum = 0;
-    for (Triangle triangle : triangles) {
-        if (axis == 0)
-            sum += triangle.x;
-        if (axis == 1)
-            sum += triangle.y;
-        if (axis == 2)
-            sum += triangle.z;
-    }
-    if (sum == 0)
-        mean = 0;
-    else
-        mean = sum / triangles.size();
-    for (Triangle triangle : triangles) {
-        if (axis == 0) {
-            if (triangle.x >= mean)
-                subdivision1.push_back(triangle);
-            else
-                subdivision2.push_back(triangle);
-        }
-        if (axis == 1) {
-            if (triangle.y >= mean)
-                subdivision1.push_back(triangle);
-            else
-                subdivision2.push_back(triangle);
-        }
-        if (axis == 2) {
-            if (triangle.z >= mean)
-                subdivision1.push_back(triangle);
-            else
-                subdivision2.push_back(triangle);
-        }
-    }
-    return Split{ subdivision1, subdivision2 };
-}
-*/
 
 AxisAlignedBox BoundingVolumeHierarchy::getAABB(std::vector<Triangle> triangles, Mesh& mesh) {
     glm::vec3 lower = glm::vec3{ INFINITY };
@@ -277,6 +236,45 @@ int BoundingVolumeHierarchy::numLevels() const
 }
 
 static glm::vec3 interpolateNormal(const glm::vec3& v0, const glm::vec3& v1, const glm::vec3& v2, const glm::vec3& p, const glm::vec3& n0, const glm::vec3& n1, const glm::vec3& n2) {
+    //Barycentric coordinates:
+     //p = v0 + alpha(v1 - v0) + beta(v2 - v0)
+     //p - v0 = alpha(v1 - v0) + beta(v2 - v0)
+     //A = v1 - v0, B = v2 - v0, C = p - v0
+     //C = alpha*A + beta*B
+     //
+     //We can dot both sides with A and B
+     //Cdot(A) = alpha*(Adot(A)) + beta*(Adot(B))
+     //Cdot(B) = alpha*(Adot(B)) + beta*(Bdot(B))
+     //
+     //dot0 Adot(A), dot1 = Adot(B), dot2 = Adot(C), dot3 = Bdot(B), dot4 = Bdot(C)
+     //
+     //substitute:
+     //dot2 = alpha(dot0) + beta(dot1)
+     //dot4 = alpha(dot1) + beta(dot3)
+     //
+     //dot2 - beta(dot1) = alpha(dot0)
+     //alpha = (dot2 - beta(dot1))/dot0
+     // 
+     //dot4 - alpha(dot1) = beta(dot3)
+     //beta = (dot4 - alpha(dot1)) / dot3
+     //
+     //alpha = (dot2 - dot1((dot4 - alpha(dot1)) / dot3)/dot0
+     //alpha*dot0 = dot2 - dot1((dot4 - alpha(dot1)) / dot3
+     //alpha*dot0*dot3 = dot2*dot3 - dot1((dot4 - alpha(dot1)
+     //alpha*dot0*dot3 = dot2*dot3 - dot1*dot4 - alpha(dot1*dot1)
+     //alpha*dot0*dot3 + alpha(dot1*dot1) = dot2*dot3 - dot1*dot4
+     //alpha(dot0*dot3 + dot1*dot1) = dot2*dot3 - dot1*dot4
+     //alpha = (dot2*dot3 - dot1*dot4) / (dot0*dot3 + dot1*dot1)
+     // 
+     //do the same thing for beta and you get:
+     //beta = (dot0*dot4 - dot1*dot2) / (dot0*dot3 + dot1*dot1)    
+     //to get gamma, we can simply do 1 - alpha - beta
+     //
+     //to interpolate the normal, we can multiply the normals with either alpha, beta or gamma.
+     //v0 + alpha(v1 - v0) + beta(v2 - v0)
+     //v0 - alpha*v0 - beta* v0 + alpha*v1 + beta*v2
+     //v0(1-alpha-beta) + alpha*v1 + beta*v2
+     //so: n0*gamma + alpha*n1 + beta*n2
     glm::vec3 A = v1 - v0;
     glm::vec3 B = v2 - v0;
     glm::vec3 C = p - v0;
@@ -301,7 +299,7 @@ static glm::vec3 interpolateNormal(const glm::vec3& v0, const glm::vec3& v1, con
 bool BoundingVolumeHierarchy::intersect(Ray& ray, HitInfo& hitInfo) const
 {
     bool hit = false;
-    bool interpolated = true;
+    bool interpolated = false;
     std::vector<Node> stack;
     stack.push_back(tree.at(0));
     while (!stack.empty()) {        

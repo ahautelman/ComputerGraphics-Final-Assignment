@@ -40,6 +40,11 @@ enum class ViewMode {
 
 glm::vec3 diffuseOnly(const glm::vec3 Kd, const glm::vec3& vertexPos, const glm::vec3& normal, const glm::vec3& lightPos)
 {
+    //https://en.wikipedia.org/wiki/Lambertian_reflectance
+    //For diffuse we can use the formula: 
+    //kd(dot(N,L))
+    //If the dot(normal, lightpos) is negative, we return a 0 vector
+    //Else we return the filled in formula
     glm::vec3 normaln = glm::normalize(normal);
     glm::vec3 lightPosn = glm::normalize(lightPos - vertexPos);
     if (glm::dot(normaln, lightPosn) <= 0)
@@ -48,6 +53,13 @@ glm::vec3 diffuseOnly(const glm::vec3 Kd, const glm::vec3& vertexPos, const glm:
 }
 glm::vec3 phongSpecularOnly(const glm::vec3 Ks, const float shininess, const glm::vec3& vertexPos, const glm::vec3& normal, const glm::vec3& lightPos, const glm::vec3& cameraPos)
 {
+    //https://en.wikipedia.org/wiki/Phong_reflection_model
+    //For phong specularity we can use the formula:
+    //Ks*(dot(R,V)^s
+    //First we calculate the reflection vector with:
+    //2(dot(ln,normal))*normal - ln
+    //if the dot(reflection, view) < 0, the light is on the other side of the point and we return the 0 vector.
+    //When we have the reflection vector we can simply fill in the formula and then return the result.
     glm::vec3 normaln = glm::normalize(normal);
     glm::vec3 lightn = glm::normalize(lightPos - vertexPos);
     glm::vec3 reflection = glm::vec3(2) * (glm::dot(lightn, normaln)) * normaln - lightn;
@@ -62,10 +74,17 @@ glm::vec3 phongSpecularOnly(const glm::vec3 Ks, const float shininess, const glm
 /// Returns true if there has is something between the light and the intersection
 static bool hardShadows(glm::vec3 intersection, const Scene& scene, const BoundingVolumeHierarchy& bvh, glm::vec3 lightPos)
 {
+    //First we construct a shadowRay, which starts at the intersectionpoint (+ an epsilon to prevent floating point errors)
+    //We also declare the direction of this ray, which is from the intersectionpoint to the light.
+    //If the there is no intersection, we return false, since the is nothing blocking the path of the light to that point.
+    //If there is an intersection, we have the intersectionpoint of the shadowRay if we take shadowRay.origin + shadowRay.direction * shadowRay.t.
+    //If the the distance from that intersection point to the origin > distance from the origin to the lightpos, the object is behind the light, so it doesn't block the lightray.
+    //If the dot(intersectionSR - shadowRay.origin), hitInfoSR.normal) > 0, the ray intersects the same object from the inside, so we return false.
+    //Else we return true.
     Ray shadowRay;
     HitInfo hitInfoSR;
     shadowRay.direction = glm::normalize(lightPos - intersection);
-    shadowRay.origin = intersection + shadowRay.direction * glm::vec3(0.00001);
+    shadowRay.origin = intersection + shadowRay.direction * glm::vec3(0.001);
 
     if (bvh.intersect(shadowRay, hitInfoSR)) {
         glm::vec3 intersectionSR = shadowRay.origin + shadowRay.direction * shadowRay.t;
@@ -182,9 +201,9 @@ static glm::vec3 Trace(Scene scene, int level, Ray ray, glm::vec3 color, Boundin
 }
 static glm::vec3 Shade(Scene scene, int level, Ray ray, glm::vec3 color, BoundingVolumeHierarchy bvh, HitInfo hitInfo) {
     glm::vec3 direct = getFinalColor(scene, bvh, ray);
-    float x = ray.origin.x + 0.000001 * glm::normalize(glm::reflect(ray.direction, hitInfo.normal)).x;
-    float y = ray.origin.y + 0.000001 * glm::normalize(glm::reflect(ray.direction, hitInfo.normal)).y;
-    float z = ray.origin.z + 0.000001 * glm::normalize(glm::reflect(ray.direction, hitInfo.normal)).z;
+    float x = ray.origin.x + 0.1 * glm::normalize(glm::reflect(ray.direction, hitInfo.normal)).x;
+    float y = ray.origin.y + 0.1 * glm::normalize(glm::reflect(ray.direction, hitInfo.normal)).y;
+    float z = ray.origin.z + 0.1 * glm::normalize(glm::reflect(ray.direction, hitInfo.normal)).z;
     glm::vec3 offset = { x,y,z };
     if (hitInfo.material.ks.x != 0 || hitInfo.material.ks.y != 0 || hitInfo.material.ks.z != 0) {
         Ray reflectray = { offset + ray.t * ray.direction,glm::normalize(glm::reflect(ray.direction, hitInfo.normal)),std::numeric_limits<float>::max() };
