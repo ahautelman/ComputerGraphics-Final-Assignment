@@ -41,7 +41,38 @@ glm::vec3 Screen::getPixel(int x, int y) {
     return m_textureData.at(index);
 }
 
-void Screen::writeBitmapToFile(const std::filesystem::path& filePath)
+glm::u8vec4 boxFilter(const std::vector<glm::u8vec4>& image, int i, int j, int filterSize, int width) {
+    glm::vec4 sum = glm::vec4{ 0 };
+
+    for (int x = -filterSize; x < filterSize + 1; x++) {
+        for (int y = -filterSize; y < filterSize + 1; y++) {
+            int index = (j + y) * width + i + x;
+            if (index >= 0 && index < image.size()) {
+                sum += image[index];
+            }
+            else {
+                return glm::u8vec4(glm::vec4(0, 0, 0, 255));
+            }
+        }
+    }
+    glm::u8vec4 res = glm::u8vec4(sum / (float)pow(2*filterSize + 1, 2));
+    return res;
+}
+
+std::vector<glm::u8vec4> Screen::blurrImage(const std::vector<glm::u8vec4>& image) {
+    std::vector<glm::u8vec4> result(image.size());
+    const int width = m_resolution.x;
+    const int height = m_resolution.y;
+    const int filterSize = 50;
+    for (int i = 0; i < width; i++) {
+        for (int j = 0; j < height; j++) {
+            result[j * width + i] = boxFilter(image, i, j, filterSize, width);
+        }
+    }
+    return result;
+}
+
+void Screen::writeBitmapToFile(const std::filesystem::path& filePath, bool bloom)
 {
     std::vector<glm::u8vec4> textureData8Bits(m_textureData.size());
     std::transform(std::begin(m_textureData), std::end(m_textureData), std::begin(textureData8Bits),
@@ -49,6 +80,33 @@ void Screen::writeBitmapToFile(const std::filesystem::path& filePath)
             const glm::vec3 clampedColor = glm::clamp(color, 0.0f, 1.0f);
             return glm::u8vec4(glm::vec4(clampedColor, 1.0f) * 255.0f);
         });
+
+    if (bloom) {
+        std::vector<glm::u8vec4> shinyDataTexture(m_textureData.size());
+        std::transform(std::begin(m_textureData), std::end(m_textureData), std::begin(shinyDataTexture),
+            [](const glm::vec3& color) {
+                const glm::vec3 clampedColor = glm::clamp(color, 0.0f, 1.0f);
+                glm::bvec3 comparison = glm::greaterThanEqual(clampedColor, glm::vec3{ 0.66 });
+                if (comparison.x && comparison.y && comparison.z) {
+                    return glm::u8vec4(glm::vec4(clampedColor, 1.0f) * 255.0f);
+                }
+                else {
+                    return glm::u8vec4(glm::vec4(glm::vec3{ 0 }, 1.0f) * 255.0f);
+                }
+            });
+        std::vector<glm::u8vec4> blurredImage = blurrImage(shinyDataTexture);
+
+        for (int i = 0; i < textureData8Bits.size(); i++) {
+            glm::u8vec4 added = textureData8Bits[i] + blurredImage[i];
+            glm::bvec4 comparison = glm::greaterThan(textureData8Bits[i], added);
+            if (comparison.x || comparison.y || comparison.z || comparison.t) {
+                textureData8Bits[i] = glm::u8vec4(255);
+            }
+            else {
+                textureData8Bits[i] += blurredImage[i];
+            }
+        }
+    }
 
     std::string filePathString = filePath.string();
     stbi_write_bmp(filePathString.c_str(), m_resolution.x, m_resolution.y, 4, textureData8Bits.data());

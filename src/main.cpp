@@ -213,6 +213,7 @@ int main(int argc, char** argv)
     int iterations = 5;
     int axis = 2;
     bool direction = true;
+    bool bloom = false;
 
     ViewMode viewMode{ ViewMode::Rasterization };
 
@@ -268,7 +269,7 @@ int main(int argc, char** argv)
                 const auto end = clock::now();
                 std::cout << "Time to render image: " << std::chrono::duration<float, std::milli>(end - start).count() << " milliseconds" << std::endl;
             }
-            screen.writeBitmapToFile(outputPath / "render.bmp");
+            screen.writeBitmapToFile(outputPath / "render.bmp", bloom);
         }
         ImGui::Spacing();
         ImGui::Separator();
@@ -283,6 +284,7 @@ int main(int argc, char** argv)
                 ImGui::Checkbox("Positive direction", &direction);
                 ImGui::SliderInt("Axis", &axis, 0, 2);
             }
+            ImGui::Checkbox("Bloom effect", &bloom);
         }
 
         ImGui::Spacing();

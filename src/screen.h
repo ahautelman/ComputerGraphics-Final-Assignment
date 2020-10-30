@@ -15,7 +15,8 @@ public:
     void clear(const glm::vec3& color);
     void setPixel(int x, int y, const glm::vec3& color);
     glm::vec3 getPixel(int x, int y);
-    void writeBitmapToFile(const std::filesystem::path& filePath);
+    std::vector<glm::u8vec4> blurrImage(const std::vector<glm::u8vec4>& image);
+    void writeBitmapToFile(const std::filesystem::path& filePath, bool bloom);
     void draw();
 
 private:
