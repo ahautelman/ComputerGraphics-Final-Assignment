@@ -10,6 +10,7 @@ DISABLE_WARNINGS_POP()
 #include <iostream>
 #include <limits>
 
+
 bool pointInTriangle(const glm::vec3& v0, const glm::vec3& v1, const glm::vec3& v2, const glm::vec3& n, const glm::vec3& p)
 {
     //Barycentric coordinates:
@@ -129,7 +130,7 @@ bool intersectRayWithTriangle(const glm::vec3& v0, const glm::vec3& v1, const gl
     if (!intersectRayWithPlane(plane, ray))
         return false;
     if (pointInTriangle(v0, v1, v2, plane.normal, (ray.origin + ray.direction * ray.t))) {
-        hitInfo.normal = plane.normal;
+     //   hitInfo.normal = plane.normal;
         return true;
     }
     ray.t = t;

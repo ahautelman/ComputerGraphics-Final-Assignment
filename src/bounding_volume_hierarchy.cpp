@@ -77,47 +77,6 @@ Split doTheSplit(std::vector<Triangle> triangles, Mesh& mesh, int axis) {
     return Split{ subdivision1, subdivision2 };
 }
 
-/*
-Split doTheSplit(std::vector<Triangle> triangles, std::vector<Vertex> vertices, int axis) {
-    std::vector<Triangle> subdivision1;
-    std::vector<Triangle> subdivision2;
-    float mean = 0;
-    float sum = 0;
-    for (Triangle triangle : triangles) {
-        if (axis == 0)
-            sum += triangle.x;
-        if (axis == 1)
-            sum += triangle.y;
-        if (axis == 2)
-            sum += triangle.z;
-    }
-    if (sum == 0)
-        mean = 0;
-    else
-        mean = sum / triangles.size();
-    for (Triangle triangle : triangles) {
-        if (axis == 0) {
-            if (triangle.x >= mean)
-                subdivision1.push_back(triangle);
-            else
-                subdivision2.push_back(triangle);
-        }
-        if (axis == 1) {
-            if (triangle.y >= mean)
-                subdivision1.push_back(triangle);
-            else
-                subdivision2.push_back(triangle);
-        }
-        if (axis == 2) {
-            if (triangle.z >= mean)
-                subdivision1.push_back(triangle);
-            else
-                subdivision2.push_back(triangle);
-        }
-    }
-    return Split{ subdivision1, subdivision2 };
-}
-*/
 
 AxisAlignedBox BoundingVolumeHierarchy::getAABB(std::vector<Triangle> triangles, Mesh& mesh) {
     glm::vec3 lower = glm::vec3{ INFINITY };
@@ -276,6 +235,63 @@ int BoundingVolumeHierarchy::numLevels() const
     return 1;
 }
 
+static glm::vec3 interpolateNormal(const glm::vec3& v0, const glm::vec3& v1, const glm::vec3& v2, const glm::vec3& p, const glm::vec3& n0, const glm::vec3& n1, const glm::vec3& n2) {
+    //Barycentric coordinates:
+     //p = v0 + alpha(v1 - v0) + beta(v2 - v0)
+     //p - v0 = alpha(v1 - v0) + beta(v2 - v0)
+     //A = v1 - v0, B = v2 - v0, C = p - v0
+     //C = alpha*A + beta*B
+     //
+     //We can dot both sides with A and B
+     //Cdot(A) = alpha*(Adot(A)) + beta*(Adot(B))
+     //Cdot(B) = alpha*(Adot(B)) + beta*(Bdot(B))
+     //
+     //dot0 Adot(A), dot1 = Adot(B), dot2 = Adot(C), dot3 = Bdot(B), dot4 = Bdot(C)
+     //
+     //substitute:
+     //dot2 = alpha(dot0) + beta(dot1)
+     //dot4 = alpha(dot1) + beta(dot3)
+     //
+     //dot2 - beta(dot1) = alpha(dot0)
+     //alpha = (dot2 - beta(dot1))/dot0
+     // 
+     //dot4 - alpha(dot1) = beta(dot3)
+     //beta = (dot4 - alpha(dot1)) / dot3
+     //
+     //alpha = (dot2 - dot1((dot4 - alpha(dot1)) / dot3)/dot0
+     //alpha*dot0 = dot2 - dot1((dot4 - alpha(dot1)) / dot3
+     //alpha*dot0*dot3 = dot2*dot3 - dot1((dot4 - alpha(dot1)
+     //alpha*dot0*dot3 = dot2*dot3 - dot1*dot4 - alpha(dot1*dot1)
+     //alpha*dot0*dot3 + alpha(dot1*dot1) = dot2*dot3 - dot1*dot4
+     //alpha(dot0*dot3 + dot1*dot1) = dot2*dot3 - dot1*dot4
+     //alpha = (dot2*dot3 - dot1*dot4) / (dot0*dot3 + dot1*dot1)
+     // 
+     //do the same thing for beta and you get:
+     //beta = (dot0*dot4 - dot1*dot2) / (dot0*dot3 + dot1*dot1)    
+     //to get gamma, we can simply do 1 - alpha - beta
+     //
+     //to interpolate the normal, we can multiply the normals with either alpha, beta or gamma.
+     //v0 + alpha(v1 - v0) + beta(v2 - v0)
+     //v0 - alpha*v0 - beta* v0 + alpha*v1 + beta*v2
+     //v0(1-alpha-beta) + alpha*v1 + beta*v2
+     //so: n0*gamma + alpha*n1 + beta*n2
+    glm::vec3 A = v1 - v0;
+    glm::vec3 B = v2 - v0;
+    glm::vec3 C = p - v0;
+
+    double dot0 = glm::dot(A, A);
+    double dot1 = glm::dot(A, B);
+    double dot2 = glm::dot(A, C);
+    double dot3 = glm::dot(B, B);
+    double dot4 = glm::dot(B, C);
+
+    double alpha = (dot2 * dot3 - dot1 * dot4) / (dot0 * dot3 - dot1 * dot1);
+    double beta = (dot0 * dot4 - dot1 * dot2) / (dot0 * dot3 - dot1 * dot1);
+    double gamma = 1 - alpha - beta;
+    glm::vec3 avgNormal = n0 * glm::vec3(gamma) + n1 * glm::vec3(alpha) + n2 * glm::vec3(beta);
+    return avgNormal;
+}
+
 // Return true if something is hit, returns false otherwise. Only find hits if they are closer than t stored
 // in the ray and if the intersection is on the correct side of the origin (the new t >= 0). Replace the code
 // by a bounding volume hierarchy acceleration structure as described in the assignment. You can change any
@@ -283,9 +299,10 @@ int BoundingVolumeHierarchy::numLevels() const
 bool BoundingVolumeHierarchy::intersect(Ray& ray, HitInfo& hitInfo) const
 {
     bool hit = false;
+    
     std::vector<Node> stack;
     stack.push_back(tree.at(0));
-    while (!stack.empty()) {
+    while (!stack.empty()) {        
         Node node = stack.front();
         stack.erase(stack.begin());
         float originT = ray.t;
@@ -299,9 +316,14 @@ bool BoundingVolumeHierarchy::intersect(Ray& ray, HitInfo& hitInfo) const
                 const auto v1 = node.mesh.vertices[tri[1]];
                 const auto v2 = node.mesh.vertices[tri[2]];
                 bool currentHit = intersectRayWithTriangle(v0.p, v1.p, v2.p, ray, hitInfo);
-                if (currentHit) {
-                    hitInfo.normal = glm::normalize(glm::cross((v1.p - v0.p), (v2.p - v0.p)));
+                if (interpolated && currentHit) {
+                    glm::vec3 normal = interpolateNormal(v0.p, v1.p, v2.p, (ray.origin + ray.direction * ray.t), v0.n, v1.n, v2.n);
+                    hitInfo.normal = normal;
                     hitInfo.material = node.mesh.material;
+                }
+                else if (currentHit) {                    
+                    hitInfo.material = node.mesh.material;
+                    hitInfo.normal = glm::normalize(glm::cross((v1.p - v0.p), (v2.p - v0.p)));
                 }
                 hit |= currentHit;
             }
