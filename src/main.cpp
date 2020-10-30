@@ -382,7 +382,7 @@ int main(int argc, char** argv)
                 bvh.reflectionMode = true;
             }
             else {
-                bvh.reflectionMode = true;
+                bvh.reflectionMode = false;
             }
         }
 
