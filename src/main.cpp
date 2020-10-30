@@ -31,7 +31,8 @@ const std::filesystem::path dataPath{ DATA_DIR };
 const std::filesystem::path outputPath{ OUTPUT_DIR };
 static glm::vec3 Shade(Scene scene, int level, Ray ray, glm::vec3 color, BoundingVolumeHierarchy bvh, HitInfo hitInfo);
 static glm::vec3 Trace(Scene scene, int level, Ray ray, glm::vec3 color, BoundingVolumeHierarchy bvh);
-
+static glm::vec3 glossyShade(Scene scene, int level, Ray ray, glm::vec3 color, BoundingVolumeHierarchy bvh, HitInfo hitInfo);
+static glm::vec3 glossyTrace(Scene scene, int level, Ray ray, glm::vec3 color, BoundingVolumeHierarchy bvh);
 enum class ViewMode {
     Rasterization = 0,
     RayTracing = 1
@@ -123,7 +124,13 @@ static void renderRayTracing(const Scene& scene, const Trackball& camera, const 
                     float(y) / windowResolution.y * 2.0f - 1.0f
             };
             const Ray cameraRay = camera.generateRay(normalizedPixelPos);
-            screen.setPixel(x, y, Trace(scene, 0, cameraRay, { 0,0,0 }, bvh));
+            bool reflectionMode = true;
+            if (reflectionMode) {
+                screen.setPixel(x, y, Trace(scene, 0, cameraRay, { 0,0,0 }, bvh));
+            }
+            else {
+                screen.setPixel(x, y, glossyTrace(scene, 0, cameraRay, { 0,0,0 }, bvh));
+            }
         }
     }
 }
@@ -152,7 +159,7 @@ static void motionBlur(const Scene& scene, Screen& screen, Trackball& cam, const
 
                 glm::vec3 color = getFinalColor(scene, bvh, cameraRay);
                 sum += color;
-            }         
+            }
             glm::vec3 finalcolor = sum / glm::vec3(iterations);
             glm::vec3 reflection = Trace(scene, 0, cameraRay, finalcolor, bvh) * glm::vec3(0.5);
             screen.setPixel(x, y, reflection);
@@ -189,7 +196,57 @@ static glm::vec3 Shade(Scene scene, int level, Ray ray, glm::vec3 color, Boundin
     }
     return color;
 }
+static glm::vec3 glossyTrace(Scene scene, int level, Ray ray, glm::vec3 color, BoundingVolumeHierarchy bvh) {
+    HitInfo hitInfo;
+    if (level <= 10) {
+        if (bvh.intersect(ray, hitInfo)) {
+            enableDrawRay = true;
+            drawRay(ray, glm::vec3{ 1.0f });
+            color = color + glossyShade(scene, level, ray, color, bvh, hitInfo);
+        }
+        else {
+            return color;
+        }
+    }
+    return color;
+}
+static glm::vec3 aRandom(float flip)
+{
+    float x = rand() / double(RAND_MAX) * flip;
+    float y = rand() / double(RAND_MAX) * flip;
+    float z = rand() / double(RAND_MAX) * flip;
+    return { x, y, z };
+}
+static glm::vec3 glossyShade(Scene scene, int level, Ray ray, glm::vec3 color, BoundingVolumeHierarchy bvh, HitInfo hitInfo) {
+    glm::vec3 direct = getFinalColor(scene, bvh, ray);
+    float x = ray.origin.x + 0.000001 * glm::normalize(glm::reflect(ray.direction, hitInfo.normal)).x;
+    float y = ray.origin.y + 0.000001 * glm::normalize(glm::reflect(ray.direction, hitInfo.normal)).y;
+    float z = ray.origin.z + 0.000001 * glm::normalize(glm::reflect(ray.direction, hitInfo.normal)).z;
+    glm::vec3 offset = { x,y,z };
+    if (hitInfo.material.ks.x != 0 || hitInfo.material.ks.y != 0 || hitInfo.material.ks.z != 0) {
+        Ray reflectray = { offset + ray.t * ray.direction,glm::normalize(glm::reflect(ray.direction, hitInfo.normal)) };
 
+        glm::vec3 ori = reflectray.origin;
+        glm::vec3 dir = reflectray.direction;
+        float flip = 1.0;
+        float scalar = 0.1;
+        glm::vec3 total;
+
+        for (int j = 0; j < 8; j++) {
+            glm::vec3 noise = aRandom(flip);
+            Ray collectray = { ori, 5.0f * dir * glm::length(ray.t * ray.direction) + scalar * noise };
+            flip = -flip;
+            glm::vec3 aColor = glossyTrace(scene, level + 1, collectray, color, bvh);
+            total += aColor;
+        }
+        glm::vec3 reflectedColor = total / 8.0f;
+        color = direct + hitInfo.material.ks * reflectedColor;
+    }
+    else {
+        color = direct;
+    }
+    return color;
+}
 
 int main(int argc, char** argv)
 {
@@ -358,6 +415,7 @@ int main(int argc, char** argv)
                 enableDrawRay = true;
                 (void)getFinalColor(scene, bvh, *optDebugRay);
                 (void)Trace(scene, 0, *optDebugRay, { 0,0,0 }, bvh);
+                (void)glossyTrace(scene, 0, *optDebugRay, { 0,0,0 }, bvh);
                 enableDrawRay = false;
             }
             glPopAttrib();

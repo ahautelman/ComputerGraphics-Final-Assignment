@@ -48,7 +48,7 @@ public:
 
 
     AxisAlignedBox getAABB(std::vector<Triangle> triangles, Mesh& mesh);
-    bool traversetree(int index, Ray& ray, HitInfo& hitInfo) const;
+    //bool traversetree(int index, Ray& ray, HitInfo& hitInfo) const;
     //bool BoundingVolumeHierarchy::traversetree(LeafNode n, Ray& ray, HitInfo& hitInfo, bool hit);
 private:
     Scene* m_pScene;
